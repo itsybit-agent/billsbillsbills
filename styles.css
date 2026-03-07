@@ -223,3 +223,26 @@ h3 { margin: var(--spacing-md) 0 var(--spacing-sm); }
 }
 .preview-table tr.header-row { background: rgba(233, 69, 96, 0.1); }
 .preview-table td { color: var(--color-muted); }
+
+/* ========== Debug Console ========== */
+.debug-console {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #000;
+  padding: var(--spacing-sm);
+  border-top: 2px solid var(--color-primary);
+  z-index: 1000;
+}
+.debug-input {
+  width: 100%;
+  background: #111;
+  color: #0f0;
+  border: none;
+  padding: var(--spacing-sm);
+  font-family: monospace;
+  font-size: 1rem;
+}
+.debug-input:focus { outline: none; }
+.debug-input::placeholder { color: #060; }

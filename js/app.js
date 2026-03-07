@@ -6,6 +6,7 @@ import { $, $$ } from './utils.js';
 import { render, renderTransactions, renderSummary } from './render.js';
 import { setRenderFunction } from './actions.js';
 import { setRenderFunction as setImportRenderFn, startImportFlow, cancelImport, confirmImport } from './import-flow.js';
+import { initDebug } from './debug.js';
 import * as actions from './actions.js';
 
 // Connect actions to render function
@@ -120,6 +121,9 @@ function init() {
 
   // Initial render
   render();
+  
+  // Debug console (if ?debug in URL)
+  initDebug(render);
 }
 
 init();
