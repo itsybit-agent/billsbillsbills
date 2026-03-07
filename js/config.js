@@ -26,15 +26,14 @@ export const EventTypes = {
 // Default column mapping (SEB format)
 export const DEFAULT_MAPPING = {
   name: 'SEB',
-  headerPattern: 'Datum',
+  headerPattern: 'Bokförd',
   dateCol: 0,
   descriptionCol: 2,
-  locationCol: 3,
-  currencyCol: 4,
-  amountCol: 6,
-  amountFallbackCol: 5,
+  locationCol: null,
+  amountCol: 4,           // Uttag (withdrawals/expenses)
+  amountFallbackCol: 3,   // Insättningar (deposits) if no withdrawal
   skipPatterns: ['Totalt', 'Valutakurs'],
-  expensesOnly: true  // only import positive amounts (expenses)
+  expensesOnly: false
 };
 
 export function getColumnMapping() {
