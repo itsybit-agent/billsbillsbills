@@ -141,13 +141,13 @@ function parseRowsWithMapping(rows, mapping) {
     if (mapping.skipPatterns?.some(p => String(row[mapping.dateCol]).includes(p))) continue;
 
     // Get amount - try primary column, then fallback
-    let amount = parseFloat(row[mapping.amountCol]) || 0;
+    let amount = parseSwedishNumber(row[mapping.amountCol]);
     if (!amount && mapping.amountFallbackCol != null) {
-      amount = parseFloat(row[mapping.amountFallbackCol]) || 0;
+      amount = parseSwedishNumber(row[mapping.amountFallbackCol]);
     }
     
-    // Filter expenses only
-    if (mapping.expensesOnly && amount <= 0) continue;
+    // Skip zero amounts
+    if (!amount) continue;
 
     transactions.push({
       id: crypto.randomUUID(),
@@ -159,6 +159,22 @@ function parseRowsWithMapping(rows, mapping) {
     });
   }
   return transactions;
+}
+
+/**
+ * Parse Swedish number format: "1 234,56" or "-1 234,56"
+ */
+function parseSwedishNumber(value) {
+  if (value == null) return 0;
+  if (typeof value === 'number') return Math.abs(value);
+  
+  // Remove spaces (thousands sep), replace comma with dot (decimal)
+  const cleaned = String(value)
+    .replace(/\s/g, '')
+    .replace(',', '.');
+  
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : Math.abs(num);
 }
 
 /**
