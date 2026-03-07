@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Expenses Classifier</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --primary: #e94560;
+      --text: #eee;
+      --muted: #888;
+      --success: #4ade80;
+      --border: #333;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { margin-bottom: 1rem; color: var(--primary); }
+    
+    /* Tabs */
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .tab {
+      padding: 0.5rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .tab.active { background: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    /* Import */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 0.5rem;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+    .drop-zone.dragover { border-color: var(--primary); }
+    .drop-zone input { display: none; }
+    
+    /* Transactions table */
+    .transactions { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+    .transactions th, .transactions td {
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+    .transactions th { background: var(--surface); }
+    .transactions tr:hover { background: var(--surface); }
+    .amount { text-align: right; font-variant-numeric: tabular-nums; }
+    
+    /* Category dropdown */
+    .category-select {
+      padding: 0.25rem 0.5rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 0.25rem;
+      cursor: pointer;
+    }
+    .category-select.unclassified { border-color: var(--primary); }
+    
+    /* Paid checkbox */
+    .paid-checkbox { width: 1.2rem; height: 1.2rem; cursor: pointer; }
+    .row-paid { opacity: 0.5; }
+    .row-paid td { text-decoration: line-through; }
+    
+    /* Summary */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .summary-card {
+      background: var(--surface);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border-left: 4px solid var(--primary);
+    }
+    .summary-card h3 { font-size: 0.9rem; color: var(--muted); }
+    .summary-card .amount { font-size: 1.5rem; font-weight: bold; }
+    
+    /* Buttons */
+    .btn {
+      padding: 0.5rem 1rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      margin-right: 0.5rem;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary { background: var(--surface); border: 1px solid var(--border); }
+    
+    /* Actions bar */
+    .actions { margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    
+    /* Rules list */
+    .rules-list { list-style: none; }
+    .rules-list li {
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .rules-list .pattern { color: var(--muted); font-family: monospace; }
+    .rules-list .category-badge {
+      background: var(--primary);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.8rem;
+    }
+    
+    /* Filter */
+    .filter-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 0.5rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🐱 Family Expenses</h1>
+    
+    <div class="tabs">
+      <button class="tab active" data-tab="transactions">Transactions</button>
+      <button class="tab" data-tab="summary">Summary</button>
+      <button class="tab" data-tab="rules">Rules</button>
+      <button class="tab" data-tab="data">Import/Export</button>
+    </div>
+    
+    <!-- Transactions Tab -->
+    <div id="transactions" class="tab-content active">
+      <div class="drop-zone" id="dropZone">
+        <p>📁 Drop bank export here (Excel/CSV)</p>
+        <p style="color: var(--muted); font-size: 0.9rem;">or click to select file</p>
+        <input type="file" id="fileInput" accept=".xlsx,.csv">
+      </div>
+      
+      <div class="filter-bar">
+        <select id="filterCategory">
+          <option value="">All categories</option>
+        </select>
+        <select id="filterMonth">
+          <option value="">All months</option>
+        </select>
+        <label>
+          <input type="checkbox" id="filterUnclassified"> Show unclassified only
+        </label>
+        <label>
+          <input type="checkbox" id="filterUnpaid"> Show unpaid only
+        </label>
+        <span id="transactionCount" style="color: var(--muted);"></span>
+        <button class="btn btn-secondary" onclick="markFilteredAsPaid()">✓ Mark filtered as paid</button>
+      </div>
+      
+      <table class="transactions" id="transactionsTable">
+        <thead>
+          <tr>
+            <th>Paid</th>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Location</th>
+            <th class="amount">Amount</th>
+            <th>Category</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    
+    <!-- Summary Tab -->
+    <div id="summary" class="tab-content">
+      <div class="filter-bar">
+        <select id="summaryMonth">
+          <option value="">All time</option>
+        </select>
+        <select id="summaryCategory">
+          <option value="">All categories</option>
+        </select>
+        <button class="btn btn-secondary" onclick="clearSummaryFilters()">Clear filters</button>
+      </div>
+      
+      <div class="summary-grid" id="summaryGrid"></div>
+      
+      <div id="categoryDetail" style="display: none; margin-top: 1rem;">
+        <h3 id="categoryDetailTitle" style="margin-bottom: 1rem;"></h3>
+        <table class="transactions" id="categoryDetailTable">
+          <thead>
+            <tr><th>Date</th><th>Description</th><th class="amount">Amount</th><th>Paid</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <h3 style="margin: 1rem 0;">Monthly Breakdown</h3>
+      <table class="transactions" id="monthlyTable">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="amount">Total</th>
+            <th class="amount">Unpaid</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      
+      <div id="monthlyCategoryBreakdown" style="margin-top: 1rem;"></div>
+    </div>
+    
+    <!-- Rules Tab -->
+    <div id="rules" class="tab-content">
+      <p style="margin-bottom: 1rem; color: var(--muted);">
+        Rules are learned automatically when you classify transactions. 
+        Pattern matching is case-insensitive and matches anywhere in the description.
+      </p>
+      <div class="actions">
+        <button class="btn" onclick="addManualRule()">+ Add Rule</button>
+        <button class="btn btn-secondary" onclick="clearRules()">Clear All Rules</button>
+      </div>
+      <ul class="rules-list" id="rulesList"></ul>
+    </div>
+    
+    <!-- Import/Export Tab -->
+    <div id="data" class="tab-content">
+      <h3>Export</h3>
+      <p style="margin: 0.5rem 0; color: var(--muted);">Download your data to use on another computer.</p>
+      <div class="actions">
+        <button class="btn" onclick="exportRules()">📤 Export Rules (JSON)</button>
+        <button class="btn" onclick="exportTransactions()">📤 Export Transactions (CSV)</button>
+        <button class="btn" onclick="exportEvents()">📤 Export All Events (JSON)</button>
+      </div>
+      
+      <h3 style="margin-top: 2rem;">Import</h3>
+      <p style="margin: 0.5rem 0; color: var(--muted);">Load rules or events from a file.</p>
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="importRulesClick()">📥 Import Rules</button>
+        <button class="btn btn-secondary" onclick="importEventsClick()">📥 Import Events</button>
+        <input type="file" id="importRulesInput" accept=".json" style="display:none">
+        <input type="file" id="importEventsInput" accept=".json" style="display:none">
+      </div>
+      
+      <h3 style="margin-top: 2rem;">Reset</h3>
+      <div class="actions">
+        <button class="btn btn-secondary" onclick="clearAllData()" style="border-color: var(--primary);">
+          🗑️ Clear All Data
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SheetJS for Excel parsing -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  
+  <script>
+    // ========== EVENT STORE ==========
+    const EVENTS_KEY = 'family_expenses_events';
+    
+    function getEvents() {
+      return JSON.parse(localStorage.getItem(EVENTS_KEY) || '[]');
+    }
+    
+    function appendEvent(event) {
+      const events = getEvents();
+      event.timestamp = Date.now();
+      event.id = crypto.randomUUID();
+      events.push(event);
+      localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+      return event;
+    }
+    
+    function clearEvents() {
+      localStorage.setItem(EVENTS_KEY, '[]');
+    }
+    
+    // ========== PROJECTIONS ==========
+    function buildState() {
+      const events = getEvents();
+      const state = {
+        transactions: {},  // id -> transaction
+        rules: {},         // pattern -> category
+        categories: new Set(['Grocery', 'Alcohol', 'Restaurant', 'Streaming', 'Transport', 
+                             'Car', 'Health', 'Itsybit', 'Clothes', 'Leisure', 'Home', 
+                             'Travel', 'Christmas', 'Birthday', 'Jocelyn', 'Fredde'])
+      };
+      
+      for (const event of events) {
+        switch (event.type) {
+          case 'TransactionImported':
+            state.transactions[event.data.id] = {
+              ...event.data,
+              category: null,
+              paid: false
+            };
+            break;
+            
+          case 'TransactionClassified':
+            if (state.transactions[event.data.transactionId]) {
+              state.transactions[event.data.transactionId].category = event.data.category;
+            }
+            break;
+            
+          case 'TransactionPaid':
+            if (state.transactions[event.data.transactionId]) {
+              state.transactions[event.data.transactionId].paid = event.data.paid;
+            }
+            break;
+            
+          case 'RuleCreated':
+            state.rules[event.data.pattern.toLowerCase()] = event.data.category;
+            state.categories.add(event.data.category);
+            break;
+            
+          case 'RuleDeleted':
+            delete state.rules[event.data.pattern.toLowerCase()];
+            break;
+            
+          case 'CategoryAdded':
+            state.categories.add(event.data.category);
+            break;
+        }
+      }
+      
+      // Auto-classify unclassified transactions
+      for (const tx of Object.values(state.transactions)) {
+        if (!tx.category) {
+          tx.category = applyRules(tx.description, state.rules);
+        }
+      }
+      
+      return state;
+    }
+    
+    function applyRules(description, rules) {
+      const desc = description.toLowerCase();
+      for (const [pattern, category] of Object.entries(rules)) {
+        if (desc.includes(pattern)) {
+          return category;
+        }
+      }
+      return null;
+    }
+    
+    // ========== UI STATE ==========
+    let currentState = buildState();
+    
+    function refreshState() {
+      currentState = buildState();
+      renderAll();
+    }
+    
+    // ========== IMPORT TRANSACTIONS ==========
+    function parseExcel(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          
+          // Find header row (contains "Datum" or "Date")
+          let startRow = 0;
+          for (let i = 0; i < Math.min(10, json.length); i++) {
+            if (json[i] && json[i].some(c => String(c).includes('Datum') || String(c).includes('Date'))) {
+              startRow = i + 1;
+              break;
+            }
+          }
+          
+          const transactions = [];
+          for (let i = startRow; i < json.length; i++) {
+            const row = json[i];
+            if (!row || !row[0]) continue;
+            
+            // Try to parse date
+            let date = row[0];
+            if (typeof date === 'number') {
+              date = XLSX.SSF.format('yyyy-mm-dd', date);
+            }
+            if (String(date).includes('Totalt') || String(date).includes('Valutakurs')) continue;
+            
+            const amount = parseFloat(row[6]) || parseFloat(row[5]) || 0;
+            if (amount <= 0) continue;  // Skip income/credits
+            
+            transactions.push({
+              id: crypto.randomUUID(),
+              date: String(date).substring(0, 10),
+              description: String(row[2] || '').trim(),
+              location: String(row[3] || '').trim(),
+              currency: String(row[4] || 'SEK'),
+              amount: amount
+            });
+          }
+          resolve(transactions);
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+    
+    async function importFile(file) {
+      const transactions = await parseExcel(file);
+      const existingIds = new Set(Object.values(currentState.transactions).map(t => 
+        `${t.date}|${t.description}|${t.amount}`
+      ));
+      
+      let imported = 0;
+      for (const tx of transactions) {
+        const key = `${tx.date}|${tx.description}|${tx.amount}`;
+        if (!existingIds.has(key)) {
+          appendEvent({ type: 'TransactionImported', data: tx });
+          imported++;
+        }
+      }
+      
+      refreshState();
+      alert(`Imported ${imported} new transactions (${transactions.length - imported} duplicates skipped)`);
+    }
+    
+    // ========== CLASSIFICATION ==========
+    function classifyTransaction(transactionId, category) {
+      appendEvent({
+        type: 'TransactionClassified',
+        data: { transactionId, category }
+      });
+      
+      // Learn rule from this classification
+      const tx = currentState.transactions[transactionId];
+      if (tx) {
+        // Extract first word or significant pattern
+        const pattern = extractPattern(tx.description);
+        if (pattern && pattern.length >= 3) {
+          appendEvent({
+            type: 'RuleCreated',
+            data: { pattern, category }
+          });
+        }
+      }
+      
+      refreshState();
+    }
+    
+    function extractPattern(description) {
+      // Extract meaningful pattern from description
+      const cleaned = description.replace(/[0-9]+/g, '').trim();
+      const words = cleaned.split(/\s+/).filter(w => w.length >= 3);
+      if (words.length > 0) {
+        // Use first 2 words or first word if it's long enough
+        return words.slice(0, 2).join(' ').toLowerCase();
+      }
+      return cleaned.toLowerCase();
+    }
+    
+    // ========== RENDERING ==========
+    function renderAll() {
+      renderTransactions();
+      renderSummary();
+      renderRules();
+      renderFilters();
+    }
+    
+    function renderTransactions() {
+      const tbody = document.querySelector('#transactionsTable tbody');
+      const filterCategory = document.getElementById('filterCategory').value;
+      const filterMonth = document.getElementById('filterMonth').value;
+      const filterUnclassified = document.getElementById('filterUnclassified').checked;
+      const filterUnpaid = document.getElementById('filterUnpaid').checked;
+      
+      let transactions = Object.values(currentState.transactions)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      
+      if (filterCategory) {
+        transactions = transactions.filter(t => t.category === filterCategory);
+      }
+      if (filterMonth) {
+        transactions = transactions.filter(t => t.date.substring(0, 7) === filterMonth);
+      }
+      if (filterUnclassified) {
+        transactions = transactions.filter(t => !t.category);
+      }
+      if (filterUnpaid) {
+        transactions = transactions.filter(t => !t.paid);
+      }
+      
+      const unpaidTotal = transactions.filter(t => !t.paid).reduce((sum, t) => sum + t.amount, 0);
+      document.getElementById('transactionCount').textContent = 
+        `${transactions.length} transactions | Unpaid: ${unpaidTotal.toLocaleString('sv-SE')} SEK`;
+      
+      // Store filtered IDs for batch operations
+      window.currentFilteredIds = transactions.map(t => t.id);
+      
+      tbody.innerHTML = transactions.map(tx => `
+        <tr class="${tx.paid ? 'row-paid' : ''}">
+          <td>
+            <input type="checkbox" class="paid-checkbox" 
+                   ${tx.paid ? 'checked' : ''} 
+                   onchange="togglePaid('${tx.id}', this.checked)">
+          </td>
+          <td>${tx.date}</td>
+          <td>${escapeHtml(tx.description)}</td>
+          <td>${escapeHtml(tx.location)}</td>
+          <td class="amount">${tx.amount.toLocaleString('sv-SE')} ${tx.currency}</td>
+          <td>
+            <select class="category-select ${tx.category ? '' : 'unclassified'}" 
+                    onchange="classifyTransaction('${tx.id}', this.value)">
+              <option value="">-- Select --</option>
+              ${[...currentState.categories].sort().map(cat => 
+                `<option value="${cat}" ${tx.category === cat ? 'selected' : ''}>${cat}</option>`
+              ).join('')}
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+    
+    function togglePaid(transactionId, paid) {
+      appendEvent({
+        type: 'TransactionPaid',
+        data: { transactionId, paid }
+      });
+      refreshState();
+    }
+    
+    function markFilteredAsPaid() {
+      const ids = window.currentFilteredIds || [];
+      if (ids.length === 0) return;
+      if (!confirm(`Mark ${ids.length} transactions as paid?`)) return;
+      
+      for (const id of ids) {
+        appendEvent({
+          type: 'TransactionPaid',
+          data: { transactionId: id, paid: true }
+        });
+      }
+      refreshState();
+    }
+    
+    function renderSummary() {
+      const grid = document.getElementById('summaryGrid');
+      const filterMonth = document.getElementById('summaryMonth').value;
+      
+      let transactions = Object.values(currentState.transactions);
+      if (filterMonth) {
+        transactions = transactions.filter(t => t.date.substring(0, 7) === filterMonth);
+      }
+      
+      // Group by category with paid/unpaid breakdown
+      const byCategory = {};
+      let total = 0;
+      let totalPaid = 0;
+      let totalUnpaid = 0;
+      
+      for (const tx of transactions) {
+        const cat = tx.category || 'Unclassified';
+        if (!byCategory[cat]) byCategory[cat] = { total: 0, paid: 0, unpaid: 0 };
+        byCategory[cat].total += tx.amount;
+        if (tx.paid) {
+          byCategory[cat].paid += tx.amount;
+          totalPaid += tx.amount;
+        } else {
+          byCategory[cat].unpaid += tx.amount;
+          totalUnpaid += tx.amount;
+        }
+        total += tx.amount;
+      }
+      
+      // Sort by unpaid amount (to prioritize what needs attention)
+      const sorted = Object.entries(byCategory).sort((a, b) => b[1].unpaid - a[1].unpaid);
+      
+      const selectedCategory = document.getElementById('summaryCategory').value;
+      
+      grid.innerHTML = `
+        <div class="summary-card" style="border-color: var(--success); cursor: pointer;" onclick="clearSummaryFilters()">
+          <h3>Total</h3>
+          <div class="amount">${total.toLocaleString('sv-SE')} SEK</div>
+          <div style="font-size: 0.8rem; color: var(--muted);">
+            ✓ ${totalPaid.toLocaleString('sv-SE')} paid
+          </div>
+        </div>
+        <div class="summary-card" style="border-color: ${totalUnpaid > 0 ? 'var(--primary)' : 'var(--success)'};">
+          <h3>Unpaid</h3>
+          <div class="amount">${totalUnpaid.toLocaleString('sv-SE')} SEK</div>
+        </div>
+      ` + sorted.map(([cat, data]) => `
+        <div class="summary-card ${selectedCategory === cat ? 'selected' : ''}" 
+             style="opacity: ${data.unpaid > 0 ? 1 : 0.6}; cursor: pointer; ${selectedCategory === cat ? 'border-color: var(--primary); border-width: 2px;' : ''}"
+             onclick="selectCategory('${escapeHtml(cat)}')">
+          <h3>${cat}</h3>
+          <div class="amount">${data.total.toLocaleString('sv-SE')} SEK</div>
+          ${data.unpaid > 0 ? `<div style="font-size: 0.8rem; color: var(--primary);">⚠ ${data.unpaid.toLocaleString('sv-SE')} unpaid</div>` : 
+            `<div style="font-size: 0.8rem; color: var(--success);">✓ All paid</div>`}
+        </div>
+      `).join('');
+      
+      // Show category detail if selected
+      if (selectedCategory) {
+        showCategoryDetail(selectedCategory, transactions);
+      } else {
+        document.getElementById('categoryDetail').style.display = 'none';
+      }
+      
+      // Monthly breakdown with category detail
+      const byMonth = {};
+      for (const tx of transactions) {
+        const month = tx.date.substring(0, 7);
+        if (!byMonth[month]) byMonth[month] = { total: 0, unpaid: 0, byCategory: {} };
+        byMonth[month].total += tx.amount;
+        if (!tx.paid) byMonth[month].unpaid += tx.amount;
+        
+        const cat = tx.category || 'Unclassified';
+        byMonth[month].byCategory[cat] = (byMonth[month].byCategory[cat] || 0) + tx.amount;
+      }
+      
+      const monthlyTbody = document.querySelector('#monthlyTable tbody');
+      monthlyTbody.innerHTML = Object.entries(byMonth)
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([month, data]) => `
+          <tr style="cursor: pointer;" onclick="selectMonth('${month}')">
+            <td>${month}</td>
+            <td class="amount">${data.total.toLocaleString('sv-SE')} SEK</td>
+            <td class="amount" style="color: ${data.unpaid > 0 ? 'var(--primary)' : 'var(--success)'};">
+              ${data.unpaid > 0 ? data.unpaid.toLocaleString('sv-SE') + ' SEK' : '✓'}
+            </td>
+          </tr>
+        `).join('');
+      
+      // Show monthly category breakdown
+      const breakdownDiv = document.getElementById('monthlyCategoryBreakdown');
+      const selectedMonth = document.getElementById('summaryMonth').value;
+      
+      if (selectedMonth && byMonth[selectedMonth]) {
+        const monthData = byMonth[selectedMonth];
+        breakdownDiv.innerHTML = `
+          <h3>${selectedMonth} by Category</h3>
+          <table class="transactions" style="margin-top: 0.5rem;">
+            <thead><tr><th>Category</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+              ${Object.entries(monthData.byCategory)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, amount]) => `
+                  <tr style="cursor: pointer;" onclick="selectCategory('${escapeHtml(cat)}')">
+                    <td>${cat}</td>
+                    <td class="amount">${amount.toLocaleString('sv-SE')} SEK</td>
+                  </tr>
+                `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else {
+        breakdownDiv.innerHTML = '';
+      }
+    }
+    
+    function selectCategory(category) {
+      document.getElementById('summaryCategory').value = category;
+      renderSummary();
+    }
+    
+    function selectMonth(month) {
+      document.getElementById('summaryMonth').value = month;
+      renderSummary();
+    }
+    
+    function clearSummaryFilters() {
+      document.getElementById('summaryMonth').value = '';
+      document.getElementById('summaryCategory').value = '';
+      document.getElementById('categoryDetail').style.display = 'none';
+      renderSummary();
+    }
+    
+    function showCategoryDetail(category, transactions) {
+      const categoryTxns = transactions
+        .filter(t => (t.category || 'Unclassified') === category)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      
+      const total = categoryTxns.reduce((sum, t) => sum + t.amount, 0);
+      const unpaid = categoryTxns.filter(t => !t.paid).reduce((sum, t) => sum + t.amount, 0);
+      
+      document.getElementById('categoryDetailTitle').textContent = 
+        `${category}: ${total.toLocaleString('sv-SE')} SEK (${unpaid > 0 ? unpaid.toLocaleString('sv-SE') + ' unpaid' : 'all paid'})`;
+      
+      document.querySelector('#categoryDetailTable tbody').innerHTML = categoryTxns.map(tx => `
+        <tr class="${tx.paid ? 'row-paid' : ''}">
+          <td>${tx.date}</td>
+          <td>${escapeHtml(tx.description)}</td>
+          <td class="amount">${tx.amount.toLocaleString('sv-SE')} SEK</td>
+          <td>${tx.paid ? '✓' : ''}</td>
+        </tr>
+      `).join('');
+      
+      document.getElementById('categoryDetail').style.display = 'block';
+    }
+    
+    function renderRules() {
+      const list = document.getElementById('rulesList');
+      const rules = Object.entries(currentState.rules).sort((a, b) => a[0].localeCompare(b[0]));
+      
+      list.innerHTML = rules.map(([pattern, category]) => `
+        <li>
+          <span class="pattern">${escapeHtml(pattern)}</span>
+          <span>
+            <span class="category-badge">${category}</span>
+            <button onclick="deleteRule('${escapeHtml(pattern)}')" style="margin-left: 0.5rem; cursor: pointer;">×</button>
+          </span>
+        </li>
+      `).join('');
+    }
+    
+    function renderFilters() {
+      const categories = ['', ...currentState.categories].sort();
+      const months = [...new Set(Object.values(currentState.transactions).map(t => t.date.substring(0, 7)))].sort().reverse();
+      
+      // Also include categories that are actually used in transactions
+      const usedCategories = new Set(Object.values(currentState.transactions).map(t => t.category).filter(Boolean));
+      const allCategories = [...new Set([...currentState.categories, ...usedCategories])].sort();
+      
+      document.getElementById('filterCategory').innerHTML = 
+        `<option value="">All categories</option>` +
+        allCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+      
+      document.getElementById('filterMonth').innerHTML = 
+        `<option value="">All months</option>` +
+        months.map(m => `<option value="${m}">${m}</option>`).join('');
+        
+      document.getElementById('summaryMonth').innerHTML = 
+        `<option value="">All time</option>` +
+        months.map(m => `<option value="${m}">${m}</option>`).join('');
+        
+      document.getElementById('summaryCategory').innerHTML = 
+        `<option value="">All categories</option>` +
+        allCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+    
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[c]);
+    }
+    
+    // ========== RULES MANAGEMENT ==========
+    function deleteRule(pattern) {
+      appendEvent({ type: 'RuleDeleted', data: { pattern } });
+      refreshState();
+    }
+    
+    function addManualRule() {
+      const pattern = prompt('Enter pattern to match (case-insensitive):');
+      if (!pattern) return;
+      const category = prompt('Enter category:');
+      if (!category) return;
+      
+      appendEvent({ type: 'RuleCreated', data: { pattern: pattern.toLowerCase(), category } });
+      appendEvent({ type: 'CategoryAdded', data: { category } });
+      refreshState();
+    }
+    
+    function clearRules() {
+      if (!confirm('Delete all classification rules?')) return;
+      for (const pattern of Object.keys(currentState.rules)) {
+        appendEvent({ type: 'RuleDeleted', data: { pattern } });
+      }
+      refreshState();
+    }
+    
+    // ========== IMPORT/EXPORT ==========
+    function exportRules() {
+      const rules = Object.entries(currentState.rules).map(([pattern, category]) => ({ pattern, category }));
+      downloadJson(rules, 'classification_rules.json');
+    }
+    
+    function exportTransactions() {
+      const transactions = Object.values(currentState.transactions)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      
+      const csv = 'Date,Description,Location,Amount,Currency,Category,Paid\n' +
+        transactions.map(t => 
+          `"${t.date}","${t.description}","${t.location}",${t.amount},"${t.currency}","${t.category || ''}","${t.paid ? 'Yes' : 'No'}"`
+        ).join('\n');
+      
+      downloadFile(csv, 'transactions.csv', 'text/csv');
+    }
+    
+    function exportEvents() {
+      downloadJson(getEvents(), 'family_expenses_events.json');
+    }
+    
+    function downloadJson(data, filename) {
+      downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
+    }
+    
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    function importRulesClick() {
+      document.getElementById('importRulesInput').click();
+    }
+    
+    function importEventsClick() {
+      document.getElementById('importEventsInput').click();
+    }
+    
+    document.getElementById('importRulesInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const text = await file.text();
+      const rules = JSON.parse(text);
+      
+      for (const rule of rules) {
+        appendEvent({ type: 'RuleCreated', data: { 
+          pattern: (rule.pattern || rule.Specifikation || '').toLowerCase(), 
+          category: rule.category || rule.Category 
+        }});
+      }
+      
+      refreshState();
+      alert(`Imported ${rules.length} rules`);
+    });
+    
+    document.getElementById('importEventsInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const text = await file.text();
+      const events = JSON.parse(text);
+      localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+      refreshState();
+      alert(`Imported ${events.length} events`);
+    });
+    
+    function clearAllData() {
+      if (!confirm('This will delete ALL transactions and rules. Are you sure?')) return;
+      clearEvents();
+      refreshState();
+    }
+    
+    // ========== TABS ==========
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+    
+    // ========== DRAG & DROP ==========
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) importFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) importFile(fileInput.files[0]);
+    });
+    
+    // ========== FILTER EVENTS ==========
+    document.getElementById('filterCategory').addEventListener('change', renderTransactions);
+    document.getElementById('filterMonth').addEventListener('change', renderTransactions);
+    document.getElementById('filterUnclassified').addEventListener('change', renderTransactions);
+    document.getElementById('filterUnpaid').addEventListener('change', renderTransactions);
+    document.getElementById('summaryMonth').addEventListener('change', renderSummary);
+    document.getElementById('summaryCategory').addEventListener('change', renderSummary);
+    
+    // ========== INIT ==========
+    renderAll();
+  </script>
+</body>
+</html>
