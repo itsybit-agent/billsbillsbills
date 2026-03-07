@@ -58,12 +58,12 @@ export async function startImportFlow(file) {
  * Check if file looks like SEB format
  */
 function isSEBFormat(rows) {
-  // Look for header row with "Bokförd" in first 5 rows
+  // Look for header row with "Datum" in first 5 rows
   for (let i = 0; i < Math.min(5, rows.length); i++) {
     const row = rows[i];
-    if (row && row[0] && String(row[0]).includes('Bokförd')) {
-      // Check if it has expected SEB columns (at least 5 columns)
-      if (row.length >= 5) {
+    if (row && row[0] && String(row[0]).includes('Datum')) {
+      // Check if it has expected SEB columns (at least 7 columns)
+      if (row.length >= 7) {
         return true;
       }
     }
