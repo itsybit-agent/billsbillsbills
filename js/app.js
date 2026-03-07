@@ -119,6 +119,15 @@ function init() {
   });
   $('#clearDataBtn').addEventListener('click', actions.clearAllData);
 
+  // Notice link to export tab
+  $('#goToExport').addEventListener('click', (e) => {
+    e.preventDefault();
+    $$('.tab').forEach(t => t.classList.remove('active'));
+    $$('.tab-content').forEach(c => c.classList.remove('active'));
+    $('[data-tab="data"]').classList.add('active');
+    $('#data').classList.add('active');
+  });
+
   // Initial render
   render();
   
