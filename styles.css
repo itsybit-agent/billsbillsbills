@@ -1,0 +1,188 @@
+/* ============================================================
+   BillsBillsBills - Styles
+   ============================================================ */
+
+/* ========== CSS Variables ========== */
+:root {
+  --color-bg: #1a1a2e;
+  --color-surface: #16213e;
+  --color-primary: #e94560;
+  --color-text: #eee;
+  --color-muted: #888;
+  --color-success: #4ade80;
+  --color-border: #333;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 2rem;
+}
+
+/* ========== Reset & Base ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  padding: var(--spacing-md);
+  line-height: 1.5;
+}
+
+/* ========== Layout ========== */
+.container { max-width: 1200px; margin: 0 auto; }
+h1 { margin-bottom: var(--spacing-md); color: var(--color-primary); }
+h3 { margin: var(--spacing-md) 0 var(--spacing-sm); }
+
+/* ========== Tabs ========== */
+.tabs { display: flex; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); flex-wrap: wrap; }
+
+.tab {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  transition: background 0.2s;
+}
+.tab:hover { opacity: 0.9; }
+.tab.active { background: var(--color-primary); }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ========== Drop Zone ========== */
+.drop-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+}
+.drop-zone:hover { border-color: var(--color-muted); }
+.drop-zone.dragover { border-color: var(--color-primary); background: rgba(233, 69, 96, 0.1); }
+.drop-zone input { display: none; }
+.drop-zone p { margin: var(--spacing-xs) 0; }
+.drop-zone .hint { color: var(--color-muted); font-size: 0.9rem; }
+
+/* ========== Tables ========== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--spacing-md);
+  font-size: 0.9rem;
+}
+.table th, .table td {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+.table th { background: var(--color-surface); font-weight: 600; }
+.table tr:hover { background: rgba(255, 255, 255, 0.02); }
+.table .amount { text-align: right; font-variant-numeric: tabular-nums; }
+.table .row-paid { opacity: 0.5; }
+.table .row-paid td { text-decoration: line-through; }
+.table tr[data-clickable] { cursor: pointer; }
+
+/* ========== Form Controls ========== */
+.select, .input {
+  padding: var(--spacing-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+.select.highlight { border-color: var(--color-primary); }
+
+.checkbox { width: 1.2rem; height: 1.2rem; cursor: pointer; accent-color: var(--color-primary); }
+
+.btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: opacity 0.2s;
+}
+.btn:hover { opacity: 0.9; }
+.btn--secondary { background: var(--color-surface); border: 1px solid var(--color-border); }
+.btn--danger { border-color: var(--color-primary); }
+
+/* ========== Filter Bar ========== */
+.filter-bar {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-bar label { display: flex; align-items: center; gap: var(--spacing-xs); cursor: pointer; }
+.filter-bar .stats { color: var(--color-muted); margin-left: auto; }
+
+/* ========== Summary Grid ========== */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.card {
+  background: var(--color-surface);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-primary);
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.2s;
+}
+.card:hover { transform: translateY(-2px); }
+.card.card--success { border-color: var(--color-success); }
+.card.card--selected { border-width: 3px; }
+.card.card--faded { opacity: 0.6; }
+.card__title { font-size: 0.85rem; color: var(--color-muted); margin-bottom: var(--spacing-xs); }
+.card__value { font-size: 1.4rem; font-weight: bold; }
+.card__subtitle { font-size: 0.8rem; margin-top: var(--spacing-xs); }
+.card__subtitle--success { color: var(--color-success); }
+.card__subtitle--warning { color: var(--color-primary); }
+
+/* ========== Rules List ========== */
+.rules-list { list-style: none; }
+.rules-list li {
+  padding: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.rules-list .pattern { color: var(--color-muted); font-family: monospace; font-size: 0.9rem; }
+.rules-list .badge {
+  background: var(--color-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+.rules-list .delete-btn {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0 var(--spacing-sm);
+}
+.rules-list .delete-btn:hover { color: var(--color-primary); }
+
+/* ========== Actions ========== */
+.actions { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; margin-bottom: var(--spacing-md); }
+
+/* ========== Section ========== */
+.section { margin-bottom: var(--spacing-lg); }
+.section__description { color: var(--color-muted); margin-bottom: var(--spacing-md); }
