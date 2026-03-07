@@ -186,3 +186,40 @@ h3 { margin: var(--spacing-md) 0 var(--spacing-sm); }
 /* ========== Section ========== */
 .section { margin-bottom: var(--spacing-lg); }
 .section__description { color: var(--color-muted); margin-bottom: var(--spacing-md); }
+
+/* ========== Column Mapping Preview ========== */
+.mapping-preview {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+.mapping-preview h3 { margin-bottom: var(--spacing-xs); }
+.mapping-preview .hint { margin-bottom: var(--spacing-md); }
+.mapping-preview .actions { margin-top: var(--spacing-md); align-items: center; }
+.checkbox-label { display: flex; align-items: center; gap: var(--spacing-xs); margin-left: auto; }
+
+.preview-table-wrapper { overflow-x: auto; margin-bottom: var(--spacing-sm); }
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.preview-table th, .preview-table td {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.preview-table th { background: var(--color-bg); }
+.preview-table th select {
+  width: 100%;
+  padding: var(--spacing-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.preview-table tr.header-row { background: rgba(233, 69, 96, 0.1); }
+.preview-table td { color: var(--color-muted); }

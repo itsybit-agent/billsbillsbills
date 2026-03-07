@@ -20,9 +20,23 @@
     <!-- TRANSACTIONS TAB -->
     <section id="transactions" class="tab-content active" role="tabpanel">
       <div class="drop-zone" id="dropZone">
-        <p>📁 Drop SEB export here (Excel)</p>
+        <p>📁 Drop bank export here (Excel)</p>
         <p class="hint">or click to select file</p>
         <input type="file" id="fileInput" accept=".xlsx,.csv">
+      </div>
+      
+      <!-- Column mapping preview (hidden until file dropped) -->
+      <div id="mappingPreview" class="mapping-preview" style="display: none;">
+        <h3>Map your columns</h3>
+        <p class="hint">Select what each column contains, then click Import</p>
+        <div id="previewTable" class="preview-table-wrapper"></div>
+        <div class="actions">
+          <button class="btn" id="confirmImportBtn">✓ Import Transactions</button>
+          <button class="btn btn--secondary" id="cancelImportBtn">Cancel</button>
+          <label class="checkbox-label">
+            <input type="checkbox" id="saveMapping" class="checkbox" checked> Remember this mapping
+          </label>
+        </div>
       </div>
       
       <div class="filter-bar">

@@ -5,10 +5,12 @@
 import { $, $$ } from './utils.js';
 import { render, renderTransactions, renderSummary } from './render.js';
 import { setRenderFunction } from './actions.js';
+import { setRenderFunction as setImportRenderFn, startImportFlow, cancelImport, confirmImport } from './import-flow.js';
 import * as actions from './actions.js';
 
 // Connect actions to render function
 setRenderFunction(render);
+setImportRenderFn(render);
 
 // ============================================================
 // EVENT HANDLERS
@@ -64,7 +66,7 @@ function init() {
     });
   });
 
-  // Drop zone
+  // Drop zone - now opens preview flow
   const dropZone = $('#dropZone');
   const fileInput = $('#fileInput');
 
@@ -74,11 +76,16 @@ function init() {
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files[0]) actions.importTransactions(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files[0]) startImportFlow(e.dataTransfer.files[0]);
   });
   fileInput.addEventListener('change', () => { 
-    if (fileInput.files[0]) actions.importTransactions(fileInput.files[0]); 
+    if (fileInput.files[0]) startImportFlow(fileInput.files[0]);
+    fileInput.value = ''; // Reset so same file can be selected again
   });
+
+  // Import flow buttons
+  $('#confirmImportBtn').addEventListener('click', confirmImport);
+  $('#cancelImportBtn').addEventListener('click', cancelImport);
 
   // Filters
   $('#filterCategory').addEventListener('change', renderTransactions);
