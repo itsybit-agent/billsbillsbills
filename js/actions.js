@@ -60,6 +60,11 @@ function extractPattern(description) {
   return words.length > 0 ? words.slice(0, 2).join(' ').toLowerCase() : cleaned.toLowerCase();
 }
 
+export function deleteTransaction(transactionId) {
+  EventStore.append(EventTypes.TRANSACTION_DELETED, { transactionId });
+  refresh();
+}
+
 export function togglePaid(transactionId, paid) {
   EventStore.append(EventTypes.TRANSACTION_PAID, { transactionId, paid });
   doRefresh();

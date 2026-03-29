@@ -42,6 +42,11 @@ document.addEventListener('click', (e) => {
     case 'delete-rule':
       actions.deleteRule(target.dataset.pattern);
       break;
+    case 'delete-transaction':
+      if (confirm('Remove this transaction?')) {
+        actions.deleteTransaction(target.dataset.id);
+      }
+      break;
   }
 });
 

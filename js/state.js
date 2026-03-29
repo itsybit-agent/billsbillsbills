@@ -34,6 +34,10 @@ export function projectState(events) {
         }
         break;
 
+      case EventTypes.TRANSACTION_DELETED:
+        delete state.transactions[event.data.transactionId];
+        break;
+
       case EventTypes.RULE_CREATED:
         state.rules[event.data.pattern.toLowerCase()] = event.data.category;
         state.categories.add(event.data.category);

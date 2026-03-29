@@ -258,3 +258,16 @@ h3 { margin: var(--spacing-md) 0 var(--spacing-sm); }
 }
 .debug-input:focus { outline: none; }
 .debug-input::placeholder { color: #060; }
+
+.btn-delete {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+}
+.btn-delete:hover { opacity: 1; color: var(--color-primary); }

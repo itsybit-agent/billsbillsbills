@@ -18,6 +18,7 @@ export const EventTypes = {
   TRANSACTION_IMPORTED: 'TransactionImported',
   TRANSACTION_CLASSIFIED: 'TransactionClassified',
   TRANSACTION_PAID: 'TransactionPaid',
+  TRANSACTION_DELETED: 'TransactionDeleted',
   RULE_CREATED: 'RuleCreated',
   RULE_DELETED: 'RuleDeleted',
   CATEGORY_ADDED: 'CategoryAdded'

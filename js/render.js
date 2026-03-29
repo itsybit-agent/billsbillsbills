@@ -49,6 +49,7 @@ export function renderTransactions() {
           ${categories.map(cat => `<option value="${cat}" ${tx.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
         </select>
       </td>
+      <td><button class="btn-delete" data-action="delete-transaction" data-id="${tx.id}" title="Remove">✕</button></td>
     </tr>
   `).join('');
 }
