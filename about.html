@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — BillsBillsBills</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .about-container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+    }
+    .about-header {
+      margin-bottom: 2.5rem;
+    }
+    .about-header h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .about-header p {
+      color: var(--color-muted);
+      font-size: 0.9rem;
+    }
+    .about-section {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .about-section h2 {
+      font-size: 1rem;
+      color: var(--color-primary);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .about-section p {
+      color: var(--color-text);
+      line-height: 1.65;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+    }
+    .about-section p:last-child { margin-bottom: 0; }
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .feature-list li {
+      font-size: 0.88rem;
+      color: var(--color-text);
+      padding-left: 1.25rem;
+      position: relative;
+    }
+    .feature-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--color-primary);
+    }
+    .cta-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+    .btn-outline {
+      background: none;
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      padding: 0.6rem 1.25rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-outline:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--color-muted);
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+    }
+    .back-link:hover { color: var(--color-text); }
+  </style>
+</head>
+<body>
+  <div class="about-container">
+    <a href="/" class="back-link">← Back to app</a>
+
+    <div class="about-header">
+      <h1>💸 BillsBillsBills</h1>
+      <p>A private, local-first family expense tracker. No accounts, no cloud, no nonsense.</p>
+    </div>
+
+    <div class="about-section">
+      <h2>📋 What is this?</h2>
+      <p>BillsBillsBills is a simple tool for tracking shared household expenses. Drop in your bank export, classify transactions by category, mark things as paid, and get a clear picture of where the money went.</p>
+      <p>Everything is stored locally in your browser using IndexedDB. Nothing leaves your device. No server, no login, no subscription.</p>
+    </div>
+
+    <div class="about-section">
+      <h2>✨ How it works</h2>
+      <ul class="feature-list">
+        <li>Drop an Excel export from your bank onto the app</li>
+        <li>Map the columns once — it remembers for next time</li>
+        <li>Auto-classifies transactions using rules you define</li>
+        <li>Anything without a rule lands in <strong>Other</strong></li>
+        <li>Mark transactions as paid to track what's settled</li>
+        <li>Summary view breaks down spending by category and month</li>
+        <li>Export your data anytime as JSON or CSV backup</li>
+      </ul>
+    </div>
+
+    <div class="about-section">
+      <h2>🔒 Privacy</h2>
+      <p>Your financial data is sensitive. This app has no backend — everything lives in your browser's local storage. Export your data regularly to back it up or move it to another device.</p>
+    </div>
+
+    <div class="about-section">
+      <h2>🏗️ Built with</h2>
+      <p>Vanilla JavaScript, event sourcing, and a healthy amount of frustration with existing expense trackers. Built by <a href="https://itsybit.se" style="color:var(--color-primary)">itsyBIT</a>.</p>
+      <p style="color:var(--color-muted);font-size:0.8rem;">Open source — contributions welcome.</p>
+    </div>
+
+    <div class="cta-row">
+      <a href="/" class="btn">Open the app →</a>
+      <a href="https://github.com/itsybit-agent/billsbillsbills" target="_blank" rel="noopener" class="btn-outline">View source on GitHub ↗</a>
+    </div>
+  </div>
+</body>
+</html>
