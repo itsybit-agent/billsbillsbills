@@ -64,7 +64,7 @@ function matchRule(description, rules) {
   for (const [pattern, category] of Object.entries(rules)) {
     if (desc.includes(pattern)) return category;
   }
-  return null;
+  return 'Other';
 }
 
 // Application state singleton

@@ -66,7 +66,7 @@ export function renderSummary() {
   let total = 0, totalPaid = 0, totalUnpaid = 0;
 
   for (const tx of transactions) {
-    const cat = tx.category || 'Unclassified';
+    const cat = tx.category || 'Other';
     byCategory[cat] = byCategory[cat] || { total: 0, paid: 0, unpaid: 0 };
     byCategory[cat].total += tx.amount;
     
@@ -145,7 +145,7 @@ function renderMonthlyBreakdown(transactions, selectedMonth) {
     byMonth[month].total += tx.amount;
     if (!tx.paid) byMonth[month].unpaid += tx.amount;
     
-    const cat = tx.category || 'Unclassified';
+    const cat = tx.category || 'Other';
     byMonth[month].byCategory[cat] = (byMonth[month].byCategory[cat] || 0) + tx.amount;
   }
 

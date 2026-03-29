@@ -8,7 +8,7 @@ export const CONFIG = {
   defaultCategories: [
     'Grocery', 'Alcohol', 'Restaurant', 'Streaming', 'Transport',
     'Car', 'Health', 'Itsybit', 'Clothes', 'Leisure', 'Home',
-    'Travel', 'Christmas', 'Birthday', 'Jocelyn', 'Fredde'
+    'Travel', 'Christmas', 'Birthday', 'Jocelyn', 'Fredde', 'Other'
   ],
   locale: 'sv-SE',
   currency: 'SEK'
@@ -32,7 +32,7 @@ export const DEFAULT_MAPPING = {
   locationCol: 3,
   amountCol: 6,
   amountFallbackCol: 5,
-  skipPatterns: ['Totalt', 'Valutakurs'],
+  skipPatterns: ['Totalt', 'Valutakurs', 'Inbetalning', 'Faktureringsavgift'],
   expensesOnly: false
 };
 
