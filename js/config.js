@@ -37,6 +37,25 @@ export const DEFAULT_MAPPING = {
   expensesOnly: false
 };
 
+// Bank Norwegian format. Columns: 0 TransactionDate (Excel serial), 1 Text,
+// 2 Type, 6 Amount (already in SEK; negative for purchases), 7 Merchant Area.
+// Skip non-expense rows: "Reserverat" (pending authorizations — would double-count
+// once they settle as Köp) and "Avbetalning" (card repayments, the Bank Norwegian
+// analog of SEB's Inbetalning).
+export const BANK_NORWEGIAN_MAPPING = {
+  name: 'Bank Norwegian',
+  headerPattern: 'TransactionDate',
+  dateCol: 0,
+  descriptionCol: 1,
+  locationCol: 7,
+  amountCol: 6,
+  skipPatterns: ['Reserverat', 'Avbetalning'],
+  expensesOnly: false
+};
+
+// Built-in formats, tried in order during auto-detection.
+export const BUILTIN_MAPPINGS = [DEFAULT_MAPPING, BANK_NORWEGIAN_MAPPING];
+
 export function getColumnMapping() {
   const stored = localStorage.getItem(CONFIG.mappingKey);
   return stored ? JSON.parse(stored) : DEFAULT_MAPPING;

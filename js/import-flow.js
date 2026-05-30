@@ -4,7 +4,7 @@
 
 import { $, escapeHTML } from './utils.js';
 import { readFileRows } from './parser.js';
-import { CONFIG, getColumnMapping, saveColumnMapping, DEFAULT_MAPPING } from './config.js';
+import { CONFIG, getColumnMapping, saveColumnMapping, DEFAULT_MAPPING, BUILTIN_MAPPINGS } from './config.js';
 import { EventTypes } from './config.js';
 import { EventStore } from './event-store.js';
 import { state, refresh } from './state.js';
@@ -37,12 +37,13 @@ export async function startImportFlow(file) {
     return;
   }
 
-  // Try SEB format first
-  if (isSEBFormat(pendingRows)) {
-    await importWithMapping(DEFAULT_MAPPING);
+  // Try a known built-in format first (SEB, Bank Norwegian, …)
+  const builtin = detectBuiltinMapping(pendingRows);
+  if (builtin) {
+    await importWithMapping(builtin);
     return;
   }
-  
+
   // Try saved custom mapping
   const savedMapping = getColumnMapping();
   if (savedMapping && savedMapping !== DEFAULT_MAPPING && matchesMapping(pendingRows, savedMapping)) {
@@ -55,20 +56,19 @@ export async function startImportFlow(file) {
 }
 
 /**
- * Check if file looks like SEB format
+ * Detect which built-in mapping matches the file by looking for the mapping's
+ * header pattern in the first few rows. Returns the mapping, or null if none match.
  */
-function isSEBFormat(rows) {
-  // Look for header row with "Datum" in first 5 rows
-  for (let i = 0; i < Math.min(5, rows.length); i++) {
-    const row = rows[i];
-    if (row && row[0] && String(row[0]).includes('Datum')) {
-      // Check if it has expected SEB columns (at least 7 columns)
-      if (row.length >= 7) {
-        return true;
+function detectBuiltinMapping(rows) {
+  for (const mapping of BUILTIN_MAPPINGS) {
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      const row = rows[i];
+      if (row?.some(c => String(c).includes(mapping.headerPattern))) {
+        return mapping;
       }
     }
   }
-  return false;
+  return null;
 }
 
 /**
@@ -138,7 +138,7 @@ function parseRowsWithMapping(rows, mapping) {
     
     // Skip invalid dates or skip patterns
     if (!date || date.length < 8) continue;
-    if (mapping.skipPatterns?.some(p => String(row[mapping.dateCol]).includes(p))) continue;
+    if (mapping.skipPatterns?.some(p => row.some(cell => String(cell).includes(p)))) continue;
 
     // Get amount - try primary column, then fallback
     let amount = parseSwedishNumber(row[mapping.amountCol]);
@@ -252,7 +252,7 @@ export async function confirmImport() {
     amountCol: null,
     locationCol: null,
     headerPattern: '',
-    skipPatterns: ['Totalt', 'Valutakurs'],
+    skipPatterns: ['Totalt', 'Valutakurs', 'Inbetalning', 'Faktureringsavgift', 'Reserverat', 'Avbetalning'],
     expensesOnly: true
   };
   
