@@ -35,7 +35,7 @@ export async function parseExcelFile(file, mapping = null) {
         }
         
         // Skip rows matching skip patterns
-        if (mapping.skipPatterns?.some(p => String(date).includes(p))) continue;
+        if (mapping.skipPatterns?.some(p => row.some(cell => String(cell).includes(p)))) continue;
 
         // Get amount
         let amount = parseFloat(row[mapping.amountCol]) || 0;
