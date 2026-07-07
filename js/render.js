@@ -16,6 +16,7 @@ export function renderTransactions() {
   const filters = {
     category: $('#filterCategory').value,
     month: $('#filterMonth').value,
+    search: $('#filterSearch').value.trim().toLowerCase(),
     unclassified: $('#filterUnclassified').checked,
     unpaid: $('#filterUnpaid').checked
   };
@@ -25,6 +26,9 @@ export function renderTransactions() {
 
   if (filters.category) transactions = transactions.filter(t => t.category === filters.category);
   if (filters.month) transactions = transactions.filter(t => t.date.startsWith(filters.month));
+  if (filters.search) transactions = transactions.filter(t =>
+    t.description.toLowerCase().includes(filters.search) ||
+    t.location.toLowerCase().includes(filters.search));
   if (filters.unclassified) transactions = transactions.filter(t => !t.category);
   if (filters.unpaid) transactions = transactions.filter(t => !t.paid);
 
@@ -207,8 +211,22 @@ export function renderFilters() {
   const monthOptions = `<option value="">All months</option>` + months.map(m => `<option value="${m}">${m}</option>`).join('');
   const categoryOptions = `<option value="">All categories</option>` + allCategories.map(c => `<option value="${c}">${c}</option>`).join('');
 
+  // Setting innerHTML resets a <select>'s value, so remember the active
+  // selections and restore them after rebuilding the options.
+  const prev = {
+    filterCategory: $('#filterCategory').value,
+    filterMonth: $('#filterMonth').value,
+    summaryMonth: $('#summaryMonth').value,
+    summaryCategory: $('#summaryCategory').value
+  };
+
   $('#filterCategory').innerHTML = categoryOptions;
   $('#filterMonth').innerHTML = monthOptions;
   $('#summaryMonth').innerHTML = `<option value="">All time</option>` + months.map(m => `<option value="${m}">${m}</option>`).join('');
   $('#summaryCategory').innerHTML = categoryOptions;
+
+  $('#filterCategory').value = prev.filterCategory;
+  $('#filterMonth').value = prev.filterMonth;
+  $('#summaryMonth').value = prev.summaryMonth;
+  $('#summaryCategory').value = prev.summaryCategory;
 }
