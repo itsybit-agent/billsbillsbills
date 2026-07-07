@@ -96,6 +96,7 @@ function init() {
   // Filters
   $('#filterCategory').addEventListener('change', renderTransactions);
   $('#filterMonth').addEventListener('change', renderTransactions);
+  $('#filterSearch').addEventListener('input', renderTransactions);
   $('#filterUnclassified').addEventListener('change', renderTransactions);
   $('#filterUnpaid').addEventListener('change', renderTransactions);
   $('#summaryMonth').addEventListener('change', renderSummary);
