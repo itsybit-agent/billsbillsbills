@@ -39,9 +39,11 @@ export const DEFAULT_MAPPING = {
 
 // Bank Norwegian format. Columns: 0 TransactionDate (Excel serial), 1 Text,
 // 2 Type, 6 Amount (already in SEK; negative for purchases), 7 Merchant Area.
-// Skip non-expense rows: "Reserverat" (pending authorizations — would double-count
-// once they settle as Köp) and "Avbetalning" (card repayments, the Bank Norwegian
-// analog of SEB's Inbetalning).
+// Skip non-expense rows by their Type value: "Reserverat" (pending authorizations
+// — would double-count once they settle as Köp), "Avbetalning" and "Betalning"
+// (card repayments / incoming deposits, the Bank Norwegian analog of SEB's
+// Inbetalning — Type "Betalning" covers rows like "Fra …" and "Inbetalning").
+// Real purchases are Type "Köp", so matching "Betalning" never touches them.
 export const BANK_NORWEGIAN_MAPPING = {
   name: 'Bank Norwegian',
   headerPattern: 'TransactionDate',
@@ -49,7 +51,7 @@ export const BANK_NORWEGIAN_MAPPING = {
   descriptionCol: 1,
   locationCol: 7,
   amountCol: 6,
-  skipPatterns: ['Reserverat', 'Avbetalning'],
+  skipPatterns: ['Reserverat', 'Avbetalning', 'Betalning'],
   expensesOnly: false
 };
 
