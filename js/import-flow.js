@@ -89,28 +89,54 @@ function matchesMapping(rows, mapping) {
  * Import using a specific column mapping
  */
 async function importWithMapping(mapping) {
-  const transactions = parseRowsWithMapping(pendingRows, mapping);
-  const existing = new Set(
-    Object.values(state.transactions).map(t => `${t.date}|${t.description}|${t.amount}`)
-  );
+  const { transactions, skipped } = parseRowsWithMapping(pendingRows, mapping);
+
+  // Existing transactions by identity, so an import can both dedupe against them
+  // and retract the ones this file now says are not expenses.
+  const existing = new Map();
+  for (const tx of Object.values(state.transactions)) {
+    const key = txKey(tx);
+    if (!existing.has(key)) existing.set(key, []);
+    existing.get(key).push(tx.id);
+  }
 
   let imported = 0;
   for (const tx of transactions) {
-    const key = `${tx.date}|${tx.description}|${tx.amount}`;
-    if (!existing.has(key)) {
+    if (!existing.has(txKey(tx))) {
       EventStore.append(EventTypes.TRANSACTION_IMPORTED, tx);
       imported++;
     }
   }
-  
+
+  // Skip patterns only ever applied at import time, so a row that an earlier
+  // import took in before it was recognised as non-expense stayed forever.
+  // Re-importing the statement now retracts it.
+  let removed = 0;
+  for (const key of new Set(skipped.map(txKey))) {
+    for (const id of existing.get(key) || []) {
+      EventStore.append(EventTypes.TRANSACTION_DELETED, { transactionId: id });
+      removed++;
+    }
+  }
+
   pendingFile = null;
   pendingRows = [];
   refresh(renderFn);
-  alert(`Imported ${imported} new transactions (${transactions.length - imported} duplicates skipped)`);
+  alert(
+    `Imported ${imported} new transactions (${transactions.length - imported} duplicates skipped)` +
+    (removed ? `\nRemoved ${removed} previously imported non-expense rows` : '')
+  );
+}
+
+/** Identity of a transaction, for dedupe and for retracting non-expense rows */
+function txKey(tx) {
+  return `${tx.date}|${tx.description}|${tx.amount}`;
 }
 
 /**
- * Parse rows using column mapping
+ * Parse rows using column mapping. Returns the expense rows to import plus the
+ * rows rejected by the mapping's skip patterns — the caller needs those to
+ * retract copies an earlier import let through.
  */
 function parseRowsWithMapping(rows, mapping) {
   // Find header row
@@ -123,42 +149,51 @@ function parseRowsWithMapping(rows, mapping) {
   }
 
   const transactions = [];
+  const skipped = [];
   for (let i = startRow; i < rows.length; i++) {
     const row = rows[i];
     if (!row?.[mapping.dateCol]) continue;
 
     let date = row[mapping.dateCol];
-    
+
     // Handle Excel serial dates
     if (typeof date === 'number') {
       date = excelDateToString(date);
     } else {
       date = String(date).substring(0, 10);
     }
-    
-    // Skip invalid dates or skip patterns
+
+    // Skip invalid dates
     if (!date || date.length < 8) continue;
-    if (mapping.skipPatterns?.some(p => row.some(cell => String(cell).includes(p)))) continue;
 
     // Get amount - try primary column, then fallback
     let amount = parseSwedishNumber(row[mapping.amountCol]);
     if (!amount && mapping.amountFallbackCol != null) {
       amount = parseSwedishNumber(row[mapping.amountFallbackCol]);
     }
-    
+
     // Skip zero amounts
     if (!amount) continue;
 
-    transactions.push({
+    const tx = {
       id: crypto.randomUUID(),
       date,
       description: String(row[mapping.descriptionCol] || '').trim(),
       location: mapping.locationCol != null ? String(row[mapping.locationCol] || '').trim() : '',
       currency: CONFIG.currency,
       amount: Math.abs(amount)
-    });
+    };
+
+    // Non-expense rows (deposits, pending authorizations, …) are recorded rather
+    // than dropped, so the caller can retract earlier imports of the same row.
+    if (mapping.skipPatterns?.some(p => row.some(cell => String(cell).includes(p)))) {
+      skipped.push(tx);
+      continue;
+    }
+
+    transactions.push(tx);
   }
-  return transactions;
+  return { transactions, skipped };
 }
 
 /**
