@@ -138,7 +138,7 @@ export function lookScreen() {
   const theme = document.documentElement.dataset.theme || 'auto';
   return `
     <div class="skins">${SKINS.map(s => `
-      <button class="skin" data-skin="${s.id}" aria-pressed="${s.id === skin}">
+      <button class="skin" data-setskin="${s.id}" aria-pressed="${s.id === skin}">
         <span class="sw">${s.sw.map(c => `<i style="background:${c}"></i>`).join('')}</span>
         <span><b>${s.name}</b><span class="sub" style="display:block;margin:0">${s.about}</span></span>
       </button>`).join('')}

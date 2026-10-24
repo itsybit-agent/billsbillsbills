@@ -4,7 +4,7 @@
  */
 
 import { CONFIG } from '../config.js';
-import { toPay, unknownRows, payments, isSettleUp } from '../piles.js';
+import { toPay, unknownRows, payments, isSettleUp, amountFor } from '../piles.js';
 import { esc, f0, f2, plain, dayLabel } from './kit.js';
 
 export function historyRow(p) {
@@ -12,17 +12,20 @@ export function historyRow(p) {
     <span class="tick" aria-hidden="true">✓</span>
     <div class="grow">
       <div style="font-weight:600">${esc(p.category)}</div>
-      <div class="sub" style="margin:0;font-size:13px">${isSettleUp(p.category) ? 'Settled' : 'Paid'} ${dayLabel(p.timestamp).toLowerCase()} · ${p.transactionIds.length} rows</div>
+      <div class="sub" style="margin:0;font-size:13px">${isSettleUp(p.category) ? 'Settled' : 'Paid'}${p.categories?.length > 1 ? ' together' : ''} ${dayLabel(p.timestamp).toLowerCase()} · ${p.transactionIds.length} rows</div>
     </div>
     <span class="num" style="font-weight:600">${f0(p.amount)}</span>
     ${p.undone ? '' : `<button class="btn small ghost" data-undo="${p.id}">Undo</button>`}
   </div>`;
 }
 
-function payRow(c) {
+function payRow(c, selected) {
   const verb = c.settleUp ? 'Settled' : 'Paid';
-  return `<div class="payrow">
-    <div class="who">${c.settleUp ? `<span class="avatar">${esc(c.category[0])}</span>` : ''}<span>${esc(c.category)}</span></div>
+  return `<div class="payrow ${selected.has(c.category) ? 'selected' : ''}">
+    <label class="who">
+      <input type="checkbox" class="pick" data-select="${esc(c.category)}" ${selected.has(c.category) ? 'checked' : ''} aria-label="Pay ${esc(c.category)} together with others">
+      ${c.settleUp ? `<span class="avatar">${esc(c.category[0])}</span>` : ''}<span>${esc(c.category)}</span>
+    </label>
     <div class="pamt num">${f2(c.amount)}</div>
     <div class="meta">
       ${c.settleUp ? `<span class="sub" style="margin:0;font-size:13px">${esc(CONFIG.settleUp[c.category])}</span>` : ''}
@@ -40,8 +43,13 @@ function payRow(c) {
   </div>`;
 }
 
-export function payScreen() {
+export function payScreen(ui) {
   const pay = toPay();
+  const open = new Set([...pay.spend, ...pay.settle].map(c => c.category));
+  // Drop selections whose category got paid or emptied meanwhile
+  for (const c of ui.paySelected) if (!open.has(c)) ui.paySelected.delete(c);
+  const selected = ui.paySelected;
+  const selectedAmount = amountFor([...selected]);
   const unknown = unknownRows();
   const paidToday = payments()
     .filter(p => !p.undone && dayLabel(p.timestamp) === 'Today')
@@ -50,15 +58,26 @@ export function payScreen() {
   return `
     ${unknown.count ? `<div class="hint"><span>${unknown.count} row${unknown.count > 1 ? 's' : ''} (${f0(unknown.amount)}) still need a category and aren't in any amount yet.</span><button class="btn small ghost" data-act="sortAll">Sort</button></div>` : ''}
     ${pay.count ? '' : '<section class="card"><div class="h2">Nothing to pay right now</div><p class="sub">New imports add to this pile.</p></section>'}
-    ${pay.spend.length ? `<div class="sect"><span>Pay to the card</span></div><div class="list">${pay.spend.map(payRow).join('')}</div>` : ''}
-    ${pay.settle.length ? `<div class="sect"><span>Settle up</span><span style="font-weight:500">people and business</span></div><div class="list">${pay.settle.map(payRow).join('')}</div>` : ''}
+    ${pay.count > 1 && !selected.size ? '<p class="sub" style="margin:0">Paying several in one transfer? Tick them and pay them together.</p>' : ''}
+    ${pay.spend.length ? `<div class="sect"><span>Pay to the card</span></div><div class="list">${pay.spend.map(c => payRow(c, selected)).join('')}</div>` : ''}
+    ${pay.settle.length ? `<div class="sect"><span>Settle up</span><span style="font-weight:500">people and business</span></div><div class="list">${pay.settle.map(c => payRow(c, selected)).join('')}</div>` : ''}
+    ${selected.size ? `
+    <div class="sticky">
+      <div class="grow">
+        <b><span class="num">${f2(selectedAmount)}</span></b>
+        <div style="font-size:12px;opacity:.75">${[...selected].map(esc).join(' + ')}</div>
+      </div>
+      <button class="btn ghost-on-ink" data-act="clearSelection" aria-label="Clear selection">✕</button>
+      <button class="btn ghost-on-ink" data-copy="${plain(selectedAmount)}">Copy</button>
+      <button class="btn" data-act="paySelected">Paid</button>
+    </div>` : `
     <div class="sticky">
       <div class="grow">
         <b><span class="num">${f0(pay.total)}</span> left to pay</b>
         <div style="font-size:12px;opacity:.75">${paidToday ? `${f0(paidToday)} paid today` : 'Pay any category whenever you like'}</div>
       </div>
       <button class="btn" data-go="paid">History</button>
-    </div>`;
+    </div>`}`;
 }
 
 export function paidScreen() {

@@ -52,6 +52,7 @@ export function projectState(events) {
         state.payments[event.data.paymentId] = {
           id: event.data.paymentId,
           category: event.data.category,
+          categories: event.data.categories || [event.data.category],
           amount: event.data.amount,
           transactionIds: event.data.transactionIds,
           timestamp: event.timestamp,

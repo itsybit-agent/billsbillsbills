@@ -26,7 +26,8 @@ import { storyOverlay, slideCount } from './ui/story.js';
 const ui = {
   screen: 'home', sortFilter: null, sortFrom: 'home', sortLimit: 0,
   menu: false, story: -1, lastImport: null, search: '', allLimit: 0,
-  aiProgress: null, aiStatus: '', models: null
+  aiProgress: null, aiStatus: '', models: null,
+  paySelected: new Set() // categories ticked to pay together in one transfer
 };
 
 const SCREENS = {
@@ -91,6 +92,7 @@ function go(screen) {
   ui.story = -1;
   if (screen !== 'import') ui.lastImport = null;
   if (screen !== 'sort') { ui.sortFilter = null; ui.sortLimit = 0; }
+  if (screen !== 'pay') ui.paySelected.clear();
   ui.screen = screen;
   render();
   window.scrollTo({ top: 0 });
@@ -141,11 +143,14 @@ function acceptAll() {
   toast(`Confirmed ${groups.length} 🤖 pick${groups.length > 1 ? 's' : ''}`, () => { undos.forEach(u => u()); rerender(); });
 }
 
-function pay(category) {
-  const result = payCategory(category);
+/** Pay one category, or several ticked ones as a single transfer. */
+function pay(categories) {
+  const result = payCategory(categories);
   if (!result) return;
+  ui.paySelected.clear();
   rerender();
-  toast(`${isSettleUp(category) ? 'Settled' : 'Paid'}: ${esc(category)} ${f0(result.amount)}`, () => { result.undo(); rerender(); });
+  const verb = [].concat(categories).every(isSettleUp) ? 'Settled' : 'Paid';
+  toast(`${verb}: ${esc(result.label)} ${f0(result.amount)}`, () => { result.undo(); rerender(); });
 }
 
 let aiController = null;
@@ -215,7 +220,7 @@ document.addEventListener('click', async (e) => {
   if (e.target.closest('#confirmImportBtn')) { confirmImport(); return; }
   if (e.target.closest('#cancelImportBtn')) { cancelImport(); return; }
 
-  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-skin],[data-themeset],[data-delete]');
+  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-setskin],[data-themeset],[data-delete]');
   if (!el) return;
   const d = el.dataset;
   // Clicks inside the menu sheet shouldn't close it via the scrim
@@ -229,7 +234,7 @@ document.addEventListener('click', async (e) => {
   if (d.pay) { pay(d.pay); return; }
   if (d.review) { ui.sortFrom = 'pay'; go('sort'); ui.sortFilter = d.review; render(); return; }
   if (d.undo) { undoPayment(d.undo); rerender(); toast('Undone: back in To pay'); return; }
-  if (d.skin) { setLook({ skin: d.skin }); return; }
+  if (d.setskin) { setLook({ skin: d.setskin }); return; }
   if (d.themeset) { setLook({ theme: d.themeset }); return; }
   if (d.delete) { if (confirm('Remove this transaction?')) actions.deleteTransaction(d.delete); render(); return; }
   if (d.copy) {
@@ -246,6 +251,8 @@ document.addEventListener('click', async (e) => {
     case 'sortMore': ui.sortLimit = (ui.sortLimit || 40) + 40; render(); break;
     case 'allMore': ui.allLimit = (ui.allLimit || 100) + 100; render(); break;
     case 'acceptAll': acceptAll(); break;
+    case 'paySelected': pay([...ui.paySelected]); break;
+    case 'clearSelection': ui.paySelected.clear(); render(); break;
     case 'aiGuess': aiGuess(); break;
     case 'aiStop': aiController?.abort(); break;
     case 'aiConnect': aiConnect(); break;
@@ -266,6 +273,14 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset.select) {
+    if (t.checked) ui.paySelected.add(t.dataset.select);
+    else ui.paySelected.delete(t.dataset.select);
+    const y = window.scrollY;
+    render();
+    window.scrollTo({ top: y });
+    return;
+  }
   if (t.dataset.classify) { actions.classifyTransaction(t.dataset.classify, t.value); return; }
   if (t.dataset.paid) { actions.togglePaid(t.dataset.paid, t.checked); return; }
   if (t.id === 'ollamaModel') { saveOllamaSettings({ ...getOllamaSettings(), model: t.value }); return; }

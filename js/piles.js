@@ -116,17 +116,28 @@ export function unknownRows() {
   return { count: txs.length, amount: txs.reduce((s, t) => s + t.amount, 0) };
 }
 
-export function payCategory(category) {
-  const group = [...toPay().spend, ...toPay().settle].find(c => c.category === category);
-  if (!group?.txs.length) return null;
+/** Pay one category, or several together as one bank transfer. */
+export function payCategory(categories) {
+  categories = [].concat(categories);
+  const pay = toPay();
+  const groups = [...pay.spend, ...pay.settle].filter(c => categories.includes(c.category) && c.txs.length);
+  if (!groups.length) return null;
+  const amount = groups.reduce((s, g) => s + g.amount, 0);
   const paymentId = crypto.randomUUID();
   EventStore.append(EventTypes.PAYMENT_RECORDED, {
     paymentId,
-    category,
-    amount: Math.round(group.amount * 100) / 100,
-    transactionIds: group.txs.map(t => t.id)
+    category: groups.map(g => g.category).join(' + '),
+    categories: groups.map(g => g.category),
+    amount: Math.round(amount * 100) / 100,
+    transactionIds: groups.flatMap(g => g.txs.map(t => t.id))
   });
-  return { paymentId, amount: group.amount, undo: () => undoPayment(paymentId) };
+  return { paymentId, amount, label: groups.map(g => g.category).join(' + '), undo: () => undoPayment(paymentId) };
+}
+
+/** Combined unpaid amount of the given categories. */
+export function amountFor(categories) {
+  const pay = toPay();
+  return [...pay.spend, ...pay.settle].filter(c => categories.includes(c.category)).reduce((s, c) => s + c.amount, 0);
 }
 
 export function undoPayment(paymentId) {
