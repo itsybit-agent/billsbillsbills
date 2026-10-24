@@ -7,6 +7,7 @@ import { CONFIG } from '../config.js';
 import { state } from '../state.js';
 import { toPay, unknownRows, payments, isSettleUp, amountFor } from '../piles.js';
 import { esc, f0, f2, plain, dayLabel } from './kit.js';
+import { categoriesByUse } from './sort.js';
 
 export function historyRow(p) {
   const filed = expenseProgress(p);
@@ -84,6 +85,10 @@ export function paymentCsv(p) {
     .join('\n');
 }
 
+// Set per render by payScreen: which row lists are open, and the category list
+let openRows = new Set();
+let cats = [];
+
 function payRow(c, selected) {
   const verb = c.settleUp ? 'Settled' : 'Paid';
   return `<div class="payrow ${selected.has(c.category) ? 'selected' : ''}">
@@ -100,10 +105,19 @@ function payRow(c, selected) {
         <button class="btn small" data-pay="${esc(c.category)}">${verb}</button>
       </span>
     </div>
-    <details>
+    <details data-rows="${esc(c.category)}" ${openRows.has(c.category) ? 'open' : ''}>
       <summary>${c.txs.length} row${c.txs.length > 1 ? 's' : ''}</summary>
-      ${c.txs.sort((a, b) => b.date.localeCompare(a.date)).map(t =>
-        `<div><span>${t.date.substring(5)} · ${esc(t.description)}${t.source === 'ai' ? ' 🤖' : ''}</span><span class="num">${f2(t.amount)}</span></div>`).join('')}
+      ${c.txs.sort((a, b) => b.date.localeCompare(a.date)).map(t => `
+        <div class="payline">
+          <span class="grow">${t.date.substring(5)} · ${esc(t.description)}${t.source === 'ai' ? ' 🤖' : ''}</span>
+          <span class="num">${f2(t.amount)}</span>
+          <span class="payline__acts">
+            <select class="select mini-select" data-reclass="${t.id}" aria-label="Category for ${esc(t.description)}">
+              ${cats.map(k => `<option ${k === t.category ? 'selected' : ''}>${esc(k)}</option>`).join('')}
+            </select>
+            <button class="linkbtn" data-paidrow="${t.id}">Already paid</button>
+          </span>
+        </div>`).join('')}
     </details>
   </div>`;
 }
@@ -115,6 +129,8 @@ export function payScreen(ui) {
   for (const c of ui.paySelected) if (!open.has(c)) ui.paySelected.delete(c);
   const selected = ui.paySelected;
   const selectedAmount = amountFor([...selected]);
+  openRows = ui.openRows;
+  cats = categoriesByUse();
   const unknown = unknownRows();
   const paidToday = payments()
     .filter(p => !p.undone && dayLabel(p.timestamp) === 'Today')

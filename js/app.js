@@ -10,7 +10,7 @@ import { state, refresh } from './state.js';
 import * as actions from './actions.js';
 import { setRenderFunction as setImportRenderFn, setImportedHandler, startImportFlow, cancelImport, confirmImport } from './import-flow.js';
 import { initDebug } from './debug.js';
-import { toSort, confirmMerchant, excludeMerchant, payCategory, undoPayment, isSettleUp } from './piles.js';
+import { toSort, confirmMerchant, excludeMerchant, payCategory, undoPayment, isSettleUp, reclassifyRow } from './piles.js';
 import { getOllamaSettings, saveOllamaSettings, listModels, suggestCategories, summarizeInsights } from './ollama.js';
 import { renderInsights, insightsFacts } from './insights.js';
 import { EventStore } from './event-store.js';
@@ -29,6 +29,7 @@ const ui = {
   menu: false, story: -1, lastImport: null, search: '', allLimit: 0,
   aiProgress: null, aiStatus: '', models: null,
   paySelected: new Set(), // categories ticked to pay together in one transfer
+  openRows: new Set(),    // To pay categories whose row list is expanded
   paymentId: null         // payment whose row list is open
 };
 
@@ -163,6 +164,20 @@ function pay(categories) {
   toast(`${verb}: ${esc(result.label)} ${f0(result.amount)}`, () => { result.undo(); refresh(); go('pay'); });
 }
 
+/** Re-render without jumping the page back to the top. */
+function keepScroll(fn) {
+  const y = window.scrollY;
+  fn();
+  window.scrollTo({ top: y });
+}
+
+// Remember which To pay row lists are open, so a re-render keeps them open
+document.addEventListener('toggle', (e) => {
+  const rows = e.target.dataset?.rows;
+  if (!rows) return;
+  if (e.target.open) ui.openRows.add(rows); else ui.openRows.delete(rows);
+}, true);
+
 function savePaymentFile(kind) {
   const p = state.payments[ui.paymentId];
   if (!p) return;
@@ -240,7 +255,7 @@ document.addEventListener('click', async (e) => {
   if (e.target.closest('#confirmImportBtn')) { confirmImport(); return; }
   if (e.target.closest('#cancelImportBtn')) { cancelImport(); return; }
 
-  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-openpay],[data-setskin],[data-themeset],[data-delete]');
+  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-openpay],[data-paidrow],[data-setskin],[data-themeset],[data-delete]');
   if (!el) return;
   const d = el.dataset;
   // Clicks inside the menu sheet shouldn't close it via the scrim
@@ -261,6 +276,17 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (d.openpay) { ui.paymentId = d.openpay; go('payment'); return; }
+  if (d.paidrow) {
+    // Paid outside the app (or already settled): just this row leaves To pay
+    const tx = state.transactions[d.paidrow];
+    EventStore.append(EventTypes.TRANSACTION_PAID, { transactionId: d.paidrow, paid: true });
+    keepScroll(rerender);
+    toast(`${esc(tx.description)} marked as already paid`, () => {
+      EventStore.append(EventTypes.TRANSACTION_PAID, { transactionId: d.paidrow, paid: false });
+      keepScroll(rerender);
+    });
+    return;
+  }
   if (d.setskin) { setLook({ skin: d.setskin }); return; }
   if (d.themeset) { setLook({ theme: d.themeset }); return; }
   if (d.delete) { if (confirm('Remove this transaction?')) actions.deleteTransaction(d.delete); render(); return; }
@@ -310,6 +336,15 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset.reclass) {
+    const tx = state.transactions[t.dataset.reclass];
+    const from = tx.category;
+    const { pattern, undo } = reclassifyRow(tx, t.value);
+    ui.openRows.add(t.value);
+    keepScroll(rerender);
+    toast(`${esc(tx.description)}: ${esc(from)} → ${esc(t.value)}${pattern ? ` · learned "${esc(pattern)}"` : ''}`, () => { undo(); keepScroll(rerender); });
+    return;
+  }
   if (t.dataset.filed) {
     EventStore.append(EventTypes.EXPENSE_FILED, { transactionId: t.dataset.filed, filed: t.checked });
     const y = window.scrollY;

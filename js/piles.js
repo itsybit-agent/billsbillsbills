@@ -24,6 +24,10 @@ export function extractPattern(description) {
   if (start < 0) return base.replace(/\d+/g, '').trim().toLowerCase();
   let end = start;
   if (words[start + 1] && isName(words[start + 1])) end = start + 1;
+  // A short single word ("cura" from "SP CURA OF SWEDEN") would match too much:
+  // take the following words as well, up to two more without digits
+  const len = () => words[end].index + words[end][0].length - words[start].index;
+  while (len() < 8 && end - start < 2 && words[end + 1] && !/\d/.test(words[end + 1][0])) end++;
   return base.slice(words[start].index, words[end].index + words[end][0].length).toLowerCase();
 }
 
@@ -48,6 +52,28 @@ export function toSort() {
   return [...groups.values()]
     .map(g => ({ ...g, dates: g.txs.map(t => t.date).sort() }))
     .sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Fix one row's category. If a rule put it there, the rule was wrong for this
+ * merchant, so point the rule at the new category too (its other rows follow).
+ */
+export function reclassifyRow(tx, category) {
+  const before = { category: tx.source ? tx.category : null, source: tx.source };
+  EventStore.append(EventTypes.TRANSACTION_CLASSIFIED, { transactionId: tx.id, category });
+  const pattern = extractPattern(tx.description);
+  const oldRule = state.rules[pattern];
+  const learn = pattern.length >= 3 && oldRule !== category;
+  if (learn) EventStore.append(EventTypes.RULE_CREATED, { pattern, category });
+  return {
+    pattern: learn ? pattern : null,
+    undo() {
+      EventStore.append(EventTypes.TRANSACTION_CLASSIFIED, { transactionId: tx.id, ...before });
+      if (!learn) return;
+      if (oldRule) EventStore.append(EventTypes.RULE_CREATED, { pattern, category: oldRule });
+      else EventStore.append(EventTypes.RULE_DELETED, { pattern });
+    }
+  };
 }
 
 /** Put every row of a merchant in a category and learn a rule for it. */
