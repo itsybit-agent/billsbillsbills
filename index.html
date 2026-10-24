@@ -17,7 +17,9 @@
     
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="transactions" role="tab">Transactions</button>
+      <button class="tab" data-tab="pay" role="tab">Pay</button>
       <button class="tab" data-tab="summary" role="tab">Summary</button>
+      <button class="tab" data-tab="insights" role="tab">Insights</button>
       <button class="tab" data-tab="rules" role="tab">Rules</button>
       <button class="tab" data-tab="data" role="tab">Import/Export</button>
     </nav>
@@ -50,11 +52,14 @@
         <input type="text" id="filterSearch" class="input" placeholder="Search description or location">
         <label><input type="checkbox" id="filterUnclassified" class="checkbox"> Unclassified</label>
         <label><input type="checkbox" id="filterUnpaid" class="checkbox"> Unpaid</label>
+        <label><input type="checkbox" id="filterAiSuggested" class="checkbox"> 🤖 To review</label>
         <span id="transactionStats" class="stats"></span>
       </div>
       
       <div class="actions">
         <button class="btn btn--secondary" id="markPaidBtn">✓ Mark filtered as paid</button>
+        <button class="btn btn--secondary" id="aiClassifyBtn">🤖 Suggest categories</button>
+        <span id="aiStatus" class="stats"></span>
       </div>
       
       <table class="table" id="transactionsTable">
@@ -70,6 +75,16 @@
         </thead>
         <tbody></tbody>
       </table>
+    </section>
+
+    <!-- PAY TAB -->
+    <section id="pay" class="tab-content" role="tabpanel">
+      <div id="payView"></div>
+    </section>
+
+    <!-- INSIGHTS TAB -->
+    <section id="insights" class="tab-content" role="tabpanel">
+      <div id="insightsView"></div>
     </section>
 
     <!-- SUMMARY TAB -->
@@ -111,6 +126,21 @@
         <button class="btn btn--secondary" id="clearRulesBtn">Clear All</button>
       </div>
       <ul class="rules-list" id="rulesList"></ul>
+
+      <div class="section">
+        <h3>🤖 AI suggestions (Ollama)</h3>
+        <p class="section__description">
+          "Suggest categories" asks a model running on your own computer to sort transactions no rule matched.
+          Nothing leaves your machine. Suggestions get a 🤖: click it (or pick a category) to confirm.
+          Bigger models (20B+) guess much better than small ones; 8B models mostly guess wrong.
+        </p>
+        <div class="actions">
+          <input type="text" id="ollamaUrl" class="input" placeholder="http://localhost:11434">
+          <select id="ollamaModel" class="select"><option value="">— model —</option></select>
+          <button class="btn btn--secondary" id="ollamaConnectBtn">Connect</button>
+          <span id="ollamaStatus" class="stats"></span>
+        </div>
+      </div>
     </section>
 
     <!-- DATA TAB -->

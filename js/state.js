@@ -18,6 +18,7 @@ export function projectState(events) {
         state.transactions[event.data.id] = {
           ...event.data,
           category: null,
+          source: null, // 'manual' | 'ai' | 'rule' | null (fell back to Other)
           paid: false
         };
         break;
@@ -25,6 +26,7 @@ export function projectState(events) {
       case EventTypes.TRANSACTION_CLASSIFIED:
         if (state.transactions[event.data.transactionId]) {
           state.transactions[event.data.transactionId].category = event.data.category;
+          state.transactions[event.data.transactionId].source = event.data.source || 'manual';
         }
         break;
 
@@ -56,7 +58,9 @@ export function projectState(events) {
   // Auto-classify unclassified transactions
   for (const tx of Object.values(state.transactions)) {
     if (!tx.category) {
-      tx.category = matchRule(tx.description, state.rules);
+      const category = matchRule(tx.description, state.rules);
+      tx.category = category || 'Other';
+      tx.source = category ? 'rule' : null;
     }
   }
 
@@ -68,7 +72,7 @@ function matchRule(description, rules) {
   for (const [pattern, category] of Object.entries(rules)) {
     if (desc.includes(pattern)) return category;
   }
-  return 'Other';
+  return null;
 }
 
 // Application state singleton

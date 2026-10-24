@@ -4,12 +4,16 @@
 
 import { state, setFilteredIds } from './state.js';
 import { $, escapeHTML, formatCurrency } from './utils.js';
+import { renderPay } from './pay.js';
+import { renderInsights } from './insights.js';
 
 export function render() {
   renderTransactions();
   renderSummary();
   renderRules();
   renderFilters();
+  renderPay();
+  renderInsights();
 }
 
 export function renderTransactions() {
@@ -18,7 +22,8 @@ export function renderTransactions() {
     month: $('#filterMonth').value,
     search: $('#filterSearch').value.trim().toLowerCase(),
     unclassified: $('#filterUnclassified').checked,
-    unpaid: $('#filterUnpaid').checked
+    unpaid: $('#filterUnpaid').checked,
+    aiSuggested: $('#filterAiSuggested').checked
   };
 
   let transactions = Object.values(state.transactions)
@@ -29,7 +34,8 @@ export function renderTransactions() {
   if (filters.search) transactions = transactions.filter(t =>
     t.description.toLowerCase().includes(filters.search) ||
     t.location.toLowerCase().includes(filters.search));
-  if (filters.unclassified) transactions = transactions.filter(t => !t.category);
+  if (filters.unclassified) transactions = transactions.filter(t => !t.source);
+  if (filters.aiSuggested) transactions = transactions.filter(t => t.source === 'ai');
   if (filters.unpaid) transactions = transactions.filter(t => !t.paid);
 
   setFilteredIds(transactions.map(t => t.id));
@@ -48,10 +54,11 @@ export function renderTransactions() {
       <td>${escapeHTML(tx.location)}</td>
       <td class="amount">${formatCurrency(tx.amount)}</td>
       <td>
-        <select class="select ${tx.category ? '' : 'highlight'}" data-action="classify" data-id="${tx.id}">
+        <select class="select ${tx.source ? '' : 'highlight'}" data-action="classify" data-id="${tx.id}">
           <option value="">-- Select --</option>
           ${categories.map(cat => `<option value="${cat}" ${tx.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
         </select>
+        ${tx.source === 'ai' ? `<button class="ai-badge" data-action="confirm-ai" data-id="${tx.id}" title="Suggested by AI — click to confirm (and learn a rule)">🤖</button>` : ''}
       </td>
       <td><button class="btn-delete" data-action="delete-transaction" data-id="${tx.id}" title="Remove">✕</button></td>
     </tr>
