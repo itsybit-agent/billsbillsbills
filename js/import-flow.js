@@ -100,13 +100,14 @@ async function importWithMapping(mapping) {
     existing.get(key).push(tx.id);
   }
 
-  let imported = 0;
+  const importedIds = [];
   for (const tx of transactions) {
     if (!existing.has(txKey(tx))) {
       EventStore.append(EventTypes.TRANSACTION_IMPORTED, tx);
-      imported++;
+      importedIds.push(tx.id);
     }
   }
+  const imported = importedIds.length;
 
   // Skip patterns only ever applied at import time, so a row that an earlier
   // import took in before it was recognised as non-expense stayed forever.
@@ -119,13 +120,32 @@ async function importWithMapping(mapping) {
     }
   }
 
+  const fileName = pendingFile?.name || '';
   pendingFile = null;
   pendingRows = [];
-  refresh(renderFn);
-  alert(
-    `Imported ${imported} new transactions (${transactions.length - imported} duplicates skipped)` +
-    (removed ? `\nRemoved ${removed} previously imported non-expense rows` : '')
-  );
+  refresh();
+
+  // How the new rows landed: sorted by rules → To pay, or new merchants → To sort
+  const added = importedIds.map(id => state.transactions[id]).filter(Boolean);
+  const summary = {
+    fileName,
+    bank: mapping.name || 'Custom format',
+    imported,
+    duplicates: transactions.length - imported,
+    skipped: skipped.length,
+    removed,
+    byRules: added.filter(t => t.source === 'rule').length,
+    excluded: added.filter(t => t.excluded).length,
+    newMerchants: new Set(added.filter(t => !t.source && !t.excluded).map(t => t.description.toLowerCase())).size
+  };
+  onImported?.(summary);
+  renderFn?.();
+}
+
+let onImported = null;
+/** Called with a summary after every import, instead of an alert. */
+export function setImportedHandler(fn) {
+  onImported = fn;
 }
 
 /** Identity of a transaction, for dedupe and for retracting non-expense rows */

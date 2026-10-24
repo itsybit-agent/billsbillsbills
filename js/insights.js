@@ -31,7 +31,7 @@ function merchantName(description) {
 const NOT_SPENDING = /^(inbetalning|betalning|ränta|rente)\b/i;
 
 export function computeInsights() {
-  const txs = Object.values(state.transactions).filter(t => !NOT_SPENDING.test(t.description));
+  const txs = Object.values(state.transactions).filter(t => !t.excluded && !NOT_SPENDING.test(t.description));
   if (!txs.length) return null;
 
   const allMonths = txs.map(t => monthKey(t.date)).sort();
@@ -80,10 +80,11 @@ export function computeInsights() {
     .sort((a, b) => b.monthly - a.monthly);
 
   const biggest = [...year].sort((a, b) => b.amount - a.amount).slice(0, 5);
+  const mostVisited = Object.values(merchants).sort((a, b) => b.count - a.count)[0];
 
   return {
     from, to: latest, months, total, prevTotal, hasPrev: prevYear.length > 0,
-    byMonth, categories, topMerchants, recurring, biggest
+    byMonth, categories, topMerchants, recurring, biggest, mostVisited, count: year.length
   };
 }
 

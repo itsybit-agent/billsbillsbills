@@ -7,6 +7,14 @@ import { EventStore } from './event-store.js';
 import { state, filteredTransactionIds, refresh } from './state.js';
 import { parseExcelFile } from './parser.js';
 import { $, downloadJSON, downloadFile } from './utils.js';
+import { extractPattern } from './piles.js';
+
+const BACKUP_KEY = 'billsbillsbills_last_backup';
+
+/** When the events were last downloaded as a backup (ms), or null. */
+export function lastBackup() {
+  try { return Number(localStorage.getItem(BACKUP_KEY)) || null; } catch { return null; }
+}
 
 let renderFn = null;
 export function setRenderFunction(fn) {
@@ -56,11 +64,6 @@ export function classifyTransaction(transactionId, category) {
   doRefresh();
 }
 
-function extractPattern(description) {
-  const cleaned = description.replace(/[0-9]+/g, '').trim();
-  const words = cleaned.split(/\s+/).filter(w => w.length >= 3);
-  return words.length > 0 ? words.slice(0, 2).join(' ').toLowerCase() : cleaned.toLowerCase();
-}
 
 export function deleteTransaction(transactionId) {
   EventStore.append(EventTypes.TRANSACTION_DELETED, { transactionId });
@@ -136,6 +139,7 @@ export function exportTransactions() {
 
 export function exportEvents() {
   downloadJSON(EventStore.getAll(), 'family_expenses_events.json');
+  try { localStorage.setItem(BACKUP_KEY, String(Date.now())); } catch {}
 }
 
 export function importRules(file) {

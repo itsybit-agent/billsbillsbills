@@ -1,179 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-skin="kvitto">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BillsBillsBills - Family Expenses</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>BillsBillsBills</title>
+  <script>
+    // Apply the saved look before first paint
+    try {
+      const look = JSON.parse(localStorage.getItem('billsbillsbills_look') || '{}');
+      if (look.skin) document.documentElement.dataset.skin = look.skin;
+      if (look.theme) document.documentElement.dataset.theme = look.theme;
+    } catch {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;700&family=Martian+Mono:wght@400;600&family=Bagel+Fat+One&family=Atkinson+Hyperlegible:wght@400;700&family=Young+Serif&family=Hanken+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <h1>🐱 BillsBillsBills <a href="about.html" style="font-size:0.7rem;font-weight:400;color:var(--color-muted);text-decoration:none;margin-left:0.5rem;" onmouseover="this.style.color='var(--color-primary)'" onmouseout="this.style.color='var(--color-muted)'">about</a></h1>
-    
-    <div class="notice">
-      💾 Your data is stored locally in this browser only — not on any server. 
-      <a href="#" id="goToExport">Export regularly</a> to backup or transfer to another device.
-    </div>
-    
-    <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="transactions" role="tab">Transactions</button>
-      <button class="tab" data-tab="pay" role="tab">Pay</button>
-      <button class="tab" data-tab="summary" role="tab">Summary</button>
-      <button class="tab" data-tab="insights" role="tab">Insights</button>
-      <button class="tab" data-tab="rules" role="tab">Rules</button>
-      <button class="tab" data-tab="data" role="tab">Import/Export</button>
-    </nav>
-
-    <!-- TRANSACTIONS TAB -->
-    <section id="transactions" class="tab-content active" role="tabpanel">
-      <div class="drop-zone" id="dropZone">
-        <p>📁 Drop bank export here (Excel)</p>
-        <p class="hint">or click to select file</p>
-        <input type="file" id="fileInput" accept=".xlsx,.csv">
-      </div>
-      
-      <!-- Column mapping preview (hidden until file dropped) -->
-      <div id="mappingPreview" class="mapping-preview" style="display: none;">
-        <h3>Map your columns</h3>
-        <p class="hint">Select what each column contains, then click Import</p>
-        <div id="previewTable" class="preview-table-wrapper"></div>
-        <div class="actions">
-          <button class="btn" id="confirmImportBtn">✓ Import Transactions</button>
-          <button class="btn btn--secondary" id="cancelImportBtn">Cancel</button>
-          <label class="checkbox-label">
-            <input type="checkbox" id="saveMapping" class="checkbox" checked> Remember this mapping
-          </label>
-        </div>
-      </div>
-      
-      <div class="filter-bar">
-        <select id="filterCategory" class="select"><option value="">All categories</option></select>
-        <select id="filterMonth" class="select"><option value="">All months</option></select>
-        <input type="text" id="filterSearch" class="input" placeholder="Search description or location">
-        <label><input type="checkbox" id="filterUnclassified" class="checkbox"> Unclassified</label>
-        <label><input type="checkbox" id="filterUnpaid" class="checkbox"> Unpaid</label>
-        <label><input type="checkbox" id="filterAiSuggested" class="checkbox"> 🤖 To review</label>
-        <span id="transactionStats" class="stats"></span>
-      </div>
-      
-      <div class="actions">
-        <button class="btn btn--secondary" id="markPaidBtn">✓ Mark filtered as paid</button>
-        <button class="btn btn--secondary" id="aiClassifyBtn">🤖 Suggest categories</button>
-        <span id="aiStatus" class="stats"></span>
-      </div>
-      
-      <table class="table" id="transactionsTable">
-        <thead>
-          <tr>
-            <th style="width: 50px">Paid</th>
-            <th style="width: 100px">Date</th>
-            <th>Description</th>
-            <th>Location</th>
-            <th class="amount" style="width: 120px">Amount</th>
-            <th style="width: 150px">Category</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <!-- PAY TAB -->
-    <section id="pay" class="tab-content" role="tabpanel">
-      <div id="payView"></div>
-    </section>
-
-    <!-- INSIGHTS TAB -->
-    <section id="insights" class="tab-content" role="tabpanel">
-      <div id="insightsView"></div>
-    </section>
-
-    <!-- SUMMARY TAB -->
-    <section id="summary" class="tab-content" role="tabpanel">
-      <div class="filter-bar">
-        <select id="summaryMonth" class="select"><option value="">All time</option></select>
-        <select id="summaryCategory" class="select"><option value="">All categories</option></select>
-        <button class="btn btn--secondary" id="clearFiltersBtn">Clear filters</button>
-      </div>
-      
-      <div class="summary-grid" id="summaryGrid"></div>
-      
-      <div id="categoryDetail" class="section" style="display: none;">
-        <h3 id="categoryDetailTitle"></h3>
-        <table class="table" id="categoryDetailTable">
-          <thead><tr><th>Date</th><th>Description</th><th class="amount">Amount</th><th>Paid</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      
-      <div class="section">
-        <h3>Monthly Breakdown</h3>
-        <table class="table" id="monthlyTable">
-          <thead><tr><th>Month</th><th class="amount">Total</th><th class="amount">Unpaid</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      
-      <div id="monthlyBreakdown"></div>
-    </section>
-
-    <!-- RULES TAB -->
-    <section id="rules" class="tab-content" role="tabpanel">
-      <p class="section__description">
-        Rules auto-classify new transactions. Pattern matching is case-insensitive.
-      </p>
-      <div class="actions">
-        <button class="btn" id="addRuleBtn">+ Add Rule</button>
-        <button class="btn btn--secondary" id="clearRulesBtn">Clear All</button>
-      </div>
-      <ul class="rules-list" id="rulesList"></ul>
-
-      <div class="section">
-        <h3>🤖 AI suggestions (Ollama)</h3>
-        <p class="section__description">
-          "Suggest categories" asks a model running on your own computer to sort transactions no rule matched.
-          Nothing leaves your machine. Suggestions get a 🤖: click it (or pick a category) to confirm.
-          Bigger models (20B+) guess much better than small ones; 8B models mostly guess wrong.
-        </p>
-        <div class="actions">
-          <input type="text" id="ollamaUrl" class="input" placeholder="http://localhost:11434">
-          <select id="ollamaModel" class="select"><option value="">— model —</option></select>
-          <button class="btn btn--secondary" id="ollamaConnectBtn">Connect</button>
-          <span id="ollamaStatus" class="stats"></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- DATA TAB -->
-    <section id="data" class="tab-content" role="tabpanel">
-      <div class="section">
-        <h3>Export</h3>
-        <p class="section__description">Download your data to backup or use on another computer.</p>
-        <div class="actions">
-          <button class="btn" id="exportRulesBtn">📤 Rules (JSON)</button>
-          <button class="btn" id="exportTransactionsBtn">📤 Transactions (CSV)</button>
-          <button class="btn" id="exportEventsBtn">📤 All Events (JSON)</button>
-        </div>
-      </div>
-      
-      <div class="section">
-        <h3>Import</h3>
-        <p class="section__description">Load rules or events from a file.</p>
-        <div class="actions">
-          <button class="btn btn--secondary" id="importRulesBtn">📥 Import Rules</button>
-          <button class="btn btn--secondary" id="importEventsBtn">📥 Import Events</button>
-        </div>
-        <input type="file" id="importRulesInput" accept=".json" hidden>
-        <input type="file" id="importEventsInput" accept=".json" hidden>
-      </div>
-      
-      <div class="section">
-        <h3>Reset</h3>
-        <div class="actions">
-          <button class="btn btn--secondary btn--danger" id="clearDataBtn">🗑️ Clear All Data</button>
-        </div>
-      </div>
-    </section>
+  <div class="app">
+    <header class="bar" id="bar"></header>
+    <main class="screen" id="screen" aria-live="polite"></main>
   </div>
+  <div id="overlay"></div>
+
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+  <input type="file" id="importRulesInput" accept=".json" hidden>
+  <input type="file" id="importEventsInput" accept=".json" hidden>
 
   <!-- Debug Console (hidden unless ?debug in URL) -->
   <div id="debugConsole" class="debug-console" style="display: none;">

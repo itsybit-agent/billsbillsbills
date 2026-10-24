@@ -1,243 +1,306 @@
 /**
- * BillsBillsBills - Main application entry point
+ * BillsBillsBills - Main application entry point.
+ * Home shows two running piles (To sort, To pay); everything else is a
+ * screen behind the menu. Screens are plain functions returning HTML; this
+ * file routes between them and handles every click.
  */
 
-import { $, $$ } from './utils.js';
-import { render, renderTransactions, renderSummary } from './render.js';
-import { setRenderFunction } from './actions.js';
-import { setRenderFunction as setImportRenderFn, startImportFlow, cancelImport, confirmImport } from './import-flow.js';
-import { initDebug } from './debug.js';
+import { $ } from './utils.js';
+import { state, refresh } from './state.js';
 import * as actions from './actions.js';
-import { state } from './state.js';
-import { getOllamaSettings, saveOllamaSettings, listModels, suggestCategories, unmatchedGroups, summarizeInsights } from './ollama.js';
-import { payCategory, undoPay } from './pay.js';
-import { insightsFacts } from './insights.js';
+import { setRenderFunction as setImportRenderFn, setImportedHandler, startImportFlow, cancelImport, confirmImport } from './import-flow.js';
+import { initDebug } from './debug.js';
+import { toSort, confirmMerchant, excludeMerchant, payCategory, undoPayment, isSettleUp } from './piles.js';
+import { getOllamaSettings, saveOllamaSettings, listModels, suggestCategories, summarizeInsights } from './ollama.js';
+import { renderInsights, insightsFacts } from './insights.js';
+import { EventStore } from './event-store.js';
+import { EventTypes } from './config.js';
+import { esc, f0, toast } from './ui/kit.js';
+import { home } from './ui/home.js';
+import { sortScreen } from './ui/sort.js';
+import { payScreen, paidScreen } from './ui/pay.js';
+import { importScreen, allScreen, rulesScreen, importsScreen, dataScreen, aiScreen, lookScreen, insightsScreen } from './ui/more.js';
+import { storyOverlay, slideCount } from './ui/story.js';
 
-// Connect actions to render function
-setRenderFunction(render);
-setImportRenderFn(render);
+// UI-only state (everything else is projected from events)
+const ui = {
+  screen: 'home', sortFilter: null, sortFrom: 'home', sortLimit: 0,
+  menu: false, story: -1, lastImport: null, search: '', allLimit: 0,
+  aiProgress: null, aiStatus: '', models: null
+};
+
+const SCREENS = {
+  home: { title: 'BillsBillsBills', render: home },
+  sort: { title: () => ui.sortFilter ? `Review ${esc(ui.sortFilter)} guesses` : 'To sort', back: () => ui.sortFrom, render: sortScreen },
+  pay: { title: 'To pay', back: 'home', render: payScreen },
+  paid: { title: 'Paid history', back: 'home', render: paidScreen },
+  import: { title: 'Add bank export', back: 'home', render: importScreen },
+  all: { title: 'All transactions', back: 'home', render: allScreen },
+  rules: { title: 'Rules', back: 'home', render: rulesScreen },
+  imports: { title: 'Imports', back: 'home', render: importsScreen },
+  data: { title: 'Backup and export', back: 'home', render: dataScreen },
+  ai: { title: 'AI helper', back: 'home', render: aiScreen },
+  look: { title: 'Look', back: 'home', render: lookScreen },
+  insights: { title: 'Insights', back: 'home', render: insightsScreen }
+};
+
+const MENU = [
+  ['home', '🏠', 'Home'], ['pay', '💳', 'To pay'], ['paid', '🧾', 'Paid history'],
+  ['all', '🔎', 'All transactions'], ['story', '✨', 'Year in review'], ['insights', '📊', 'Insights tables'],
+  ['rules', '🧠', 'Rules'], ['imports', '⇪', 'Imports'], ['ai', '🤖', 'AI helper'],
+  ['look', '🎨', 'Look'], ['data', '💾', 'Backup and export']
+];
+
+const val = v => typeof v === 'function' ? v() : v;
 
 // ============================================================
-// EVENT HANDLERS
+// RENDER
 // ============================================================
 
-document.addEventListener('click', (e) => {
-  const target = e.target.closest('[data-action]');
-  if (!target) return;
+function render() {
+  const screen = SCREENS[ui.screen] || SCREENS.home;
+  const back = val(screen.back);
+  $('#bar').innerHTML = `
+    ${back ? `<button class="icon" data-go="${back}" aria-label="Back">←</button>` : '<span class="icon" aria-hidden="true">🐱</span>'}
+    <h1>${val(screen.title)}</h1>
+    ${back ? '' : '<button class="addbtn" data-act="pickFile">+ Bank export</button>'}
+    <button class="icon" data-act="menu" aria-label="Menu">☰</button>`;
+  $('#screen').innerHTML = screen.render(ui);
+  renderOverlay();
+  if (ui.screen === 'insights') renderInsights();
+  if (ui.screen === 'import') wireDropZone();
+}
 
-  switch (target.dataset.action) {
-    case 'toggle-paid':
-      actions.togglePaid(target.dataset.id, target.checked);
-      break;
-    case 'select-category':
-      $('#summaryCategory').value = target.dataset.category;
-      renderSummary();
-      break;
-    case 'select-month':
-      $('#summaryMonth').value = target.dataset.month;
-      renderSummary();
-      break;
-    case 'clear-filters':
-      $('#summaryMonth').value = '';
-      $('#summaryCategory').value = '';
-      $('#categoryDetail').style.display = 'none';
-      renderSummary();
-      break;
-    case 'confirm-ai':
-      actions.classifyTransaction(target.dataset.id, state.transactions[target.dataset.id].category);
-      break;
-    case 'pay-category':
-      payCategory(target.dataset.category);
-      actions.refreshView();
-      break;
-    case 'undo-pay':
-      undoPay();
-      actions.refreshView();
-      break;
-    case 'copy-amount': {
-      // Bank forms want "1234,50": no thousands separator, decimal comma
-      const amount = String(target.dataset.amount).replace('.', ',');
-      navigator.clipboard?.writeText(amount).then(() => {
-        target.textContent = '✓';
-        setTimeout(() => { target.textContent = '📋'; }, 1200);
-      });
-      break;
-    }
-    case 'delete-rule':
-      actions.deleteRule(target.dataset.pattern);
-      break;
-    case 'delete-transaction':
-      if (confirm('Remove this transaction?')) {
-        actions.deleteTransaction(target.dataset.id);
+function renderOverlay() {
+  const o = $('#overlay');
+  if (ui.menu) {
+    o.innerHTML = `<div class="scrim" data-act="closeMenu"><div class="sheet" role="dialog" aria-label="Menu">
+      <span class="grab"></span>
+      ${MENU.map(([go, icon, label]) => `<button class="li" ${go === 'story' ? 'data-act="story"' : `data-go="${go}"`}><span aria-hidden="true">${icon}</span><span class="grow t">${label}</span></button>`).join('')}
+      <a class="li" href="about.html"><span aria-hidden="true">🐱</span><span class="grow t">About</span></a>
+    </div></div>`;
+  } else if (ui.story >= 0) {
+    o.innerHTML = storyOverlay(ui.story);
+  } else {
+    o.innerHTML = '';
+  }
+}
+
+function go(screen) {
+  ui.menu = false;
+  ui.story = -1;
+  if (screen !== 'import') ui.lastImport = null;
+  if (screen !== 'sort') { ui.sortFilter = null; ui.sortLimit = 0; }
+  ui.screen = screen;
+  render();
+  window.scrollTo({ top: 0 });
+}
+
+function rerender() {
+  refresh();
+  render();
+}
+
+function wireDropZone() {
+  const zone = $('#dropZone');
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) startImportFlow(e.dataTransfer.files[0]);
+  });
+}
+
+// ============================================================
+// COMMANDS
+// ============================================================
+
+function sortMerchant(key, category) {
+  const group = toSort().find(g => g.key === key);
+  if (!group) return;
+  const { pattern, undo } = confirmMerchant(group, category);
+  rerender();
+  toast(`${esc(group.description)} → ${esc(category)}${pattern ? ` · learned "${esc(pattern)}"` : ''}`, () => { undo(); rerender(); });
+}
+
+function exclude(key) {
+  const group = toSort().find(g => g.key === key);
+  if (!group) return;
+  const { pattern, undo } = excludeMerchant(group);
+  rerender();
+  toast(`"${esc(pattern)}" isn't counted as an expense from now on`, () => { undo(); rerender(); });
+}
+
+function acceptAll() {
+  let groups = toSort().filter(g => g.aiCategory);
+  if (ui.sortFilter) groups = groups.filter(g => g.aiCategory === ui.sortFilter);
+  const undos = groups.map(g => confirmMerchant(g, g.aiCategory).undo);
+  rerender();
+  toast(`Confirmed ${groups.length} 🤖 pick${groups.length > 1 ? 's' : ''}`, () => { undos.forEach(u => u()); rerender(); });
+}
+
+function pay(category) {
+  const result = payCategory(category);
+  if (!result) return;
+  rerender();
+  toast(`${isSettleUp(category) ? 'Settled' : 'Paid'}: ${esc(category)} ${f0(result.amount)}`, () => { result.undo(); rerender(); });
+}
+
+let aiController = null;
+async function aiGuess() {
+  aiController = new AbortController();
+  ui.aiProgress = { text: 'Asking the model…', pct: 3 };
+  render();
+  try {
+    const count = await suggestCategories({
+      signal: aiController.signal,
+      onProgress: (done, total) => {
+        ui.aiProgress = { text: `${done} of ${total} merchants…`, pct: Math.round(done / total * 100) };
+        rerender();
       }
-      break;
+    });
+    toast(`🤖 guessed ${count} row${count === 1 ? '' : 's'}. Check the picks, then confirm.`);
+  } catch (err) {
+    toast(err.name === 'AbortError' ? 'Stopped. Guesses so far are kept.' : `🤖 ${esc(err.message)}`);
+  } finally {
+    aiController = null;
+    ui.aiProgress = null;
+    rerender();
+  }
+}
+
+async function aiConnect() {
+  const url = $('#ollamaUrl').value.trim() || 'http://localhost:11434';
+  ui.aiStatus = 'Connecting…';
+  render();
+  try {
+    ui.models = await listModels(url);
+    const current = getOllamaSettings().model;
+    const model = ui.models.includes(current) ? current : (ui.models.find(m => /2\dB|3\dB|7\dB/i.test(m)) || ui.models[0] || '');
+    saveOllamaSettings({ url, model });
+    ui.aiStatus = `Connected · ${ui.models.length} models`;
+  } catch {
+    ui.aiStatus = `Can't reach Ollama at ${url}. Is it running, and does OLLAMA_ORIGINS allow ${location.origin}?`;
+  }
+  render();
+}
+
+function setLook(change) {
+  const root = document.documentElement;
+  if (change.skin) root.dataset.skin = change.skin;
+  if (change.theme) {
+    if (change.theme === 'auto') delete root.dataset.theme;
+    else root.dataset.theme = change.theme;
+  }
+  try {
+    localStorage.setItem('billsbillsbills_look', JSON.stringify({ skin: root.dataset.skin, theme: root.dataset.theme }));
+  } catch {}
+  render();
+}
+
+// ============================================================
+// EVENTS
+// ============================================================
+
+document.addEventListener('click', async (e) => {
+  if (e.target.closest('#aiInsightsBtn')) {
+    const out = $('#aiInsights');
+    out.textContent = '🤖 Thinking…';
+    try { await summarizeInsights(insightsFacts(), text => { out.textContent = text; }); }
+    catch (err) { out.textContent = `✗ ${err.message}`; }
+    return;
+  }
+  if (e.target.closest('#confirmImportBtn')) { confirmImport(); return; }
+  if (e.target.closest('#cancelImportBtn')) { cancelImport(); return; }
+
+  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-skin],[data-themeset],[data-delete]');
+  if (!el) return;
+  const d = el.dataset;
+  // Clicks inside the menu sheet shouldn't close it via the scrim
+  if (d.act === 'closeMenu' && e.target !== el) return;
+
+  if (d.go) { go(d.go); return; }
+  if (d.sort) { sortMerchant(d.sort, d.cat); return; }
+  if (d.exclude) { exclude(d.exclude); return; }
+  if (d.include) { EventStore.append(EventTypes.MERCHANT_INCLUDED, { pattern: d.include }); rerender(); return; }
+  if (d.delrule) { actions.deleteRule(d.delrule); return; }
+  if (d.pay) { pay(d.pay); return; }
+  if (d.review) { ui.sortFrom = 'pay'; go('sort'); ui.sortFilter = d.review; render(); return; }
+  if (d.undo) { undoPayment(d.undo); rerender(); toast('Undone: back in To pay'); return; }
+  if (d.skin) { setLook({ skin: d.skin }); return; }
+  if (d.themeset) { setLook({ theme: d.themeset }); return; }
+  if (d.delete) { if (confirm('Remove this transaction?')) actions.deleteTransaction(d.delete); render(); return; }
+  if (d.copy) {
+    try { await navigator.clipboard.writeText(d.copy); toast(`Copied ${d.copy}. Paste it in the bank app.`); }
+    catch { toast(`Amount: ${d.copy}`); }
+    return;
+  }
+
+  switch (d.act) {
+    case 'menu': ui.menu = true; renderOverlay(); break;
+    case 'closeMenu': ui.menu = false; renderOverlay(); break;
+    case 'pickFile': go('import'); $('#fileInput').click(); break;
+    case 'sortAll': ui.sortFrom = ui.screen === 'pay' ? 'pay' : 'home'; go('sort'); break;
+    case 'sortMore': ui.sortLimit = (ui.sortLimit || 40) + 40; render(); break;
+    case 'allMore': ui.allLimit = (ui.allLimit || 100) + 100; render(); break;
+    case 'acceptAll': acceptAll(); break;
+    case 'aiGuess': aiGuess(); break;
+    case 'aiStop': aiController?.abort(); break;
+    case 'aiConnect': aiConnect(); break;
+    case 'backup': actions.exportEvents(); toast('Backup saved to your downloads'); render(); break;
+    case 'pickEvents': $('#importEventsInput').click(); break;
+    case 'pickRules': $('#importRulesInput').click(); break;
+    case 'exportRules': actions.exportRules(); break;
+    case 'exportCsv': actions.exportTransactions(); break;
+    case 'clearAll': actions.clearAllData(); go('home'); break;
+    case 'addRule': actions.addManualRule(); break;
+    case 'story': ui.menu = false; ui.story = 0; renderOverlay(); break;
+    case 'closeStory': ui.story = -1; renderOverlay(); break;
+    case 'storyNext': ui.story = ui.story < slideCount() - 1 ? ui.story + 1 : -1; renderOverlay(); break;
+    case 'storyPrev': ui.story = Math.max(0, ui.story - 1); renderOverlay(); break;
+    case 'tables': go('insights'); break;
   }
 });
 
 document.addEventListener('change', (e) => {
-  const target = e.target.closest('[data-action]');
-  if (target?.dataset.action === 'classify') {
-    actions.classifyTransaction(target.dataset.id, target.value);
-  }
+  const t = e.target;
+  if (t.dataset.classify) { actions.classifyTransaction(t.dataset.classify, t.value); return; }
+  if (t.dataset.paid) { actions.togglePaid(t.dataset.paid, t.checked); return; }
+  if (t.id === 'ollamaModel') { saveOllamaSettings({ ...getOllamaSettings(), model: t.value }); return; }
+  if (t.id === 'fileInput' && t.files[0]) { startImportFlow(t.files[0]); t.value = ''; return; }
+  if (t.id === 'importRulesInput' && t.files[0]) { actions.importRules(t.files[0]); t.value = ''; return; }
+  if (t.id === 'importEventsInput' && t.files[0]) { actions.importEvents(t.files[0]); t.value = ''; }
+});
+
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'search') return;
+  ui.search = e.target.value;
+  ui.allLimit = 0;
+  render();
+  const input = $('#search');
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  ui.menu = false;
+  ui.story = -1;
+  renderOverlay();
 });
 
 // ============================================================
 // INITIALIZATION
 // ============================================================
 
-function init() {
-  // Tabs
-  $$('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      $$('.tab').forEach(t => t.classList.remove('active'));
-      $$('.tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      $('#' + tab.dataset.tab).classList.add('active');
-    });
-  });
+actions.setRenderFunction(render);
+setImportRenderFn(render);
+setImportedHandler(summary => {
+  ui.lastImport = summary;
+  ui.screen = 'import';
+});
 
-  // Drop zone - now opens preview flow
-  const dropZone = $('#dropZone');
-  const fileInput = $('#fileInput');
-
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files[0]) startImportFlow(e.dataTransfer.files[0]);
-  });
-  fileInput.addEventListener('change', () => { 
-    if (fileInput.files[0]) startImportFlow(fileInput.files[0]);
-    fileInput.value = ''; // Reset so same file can be selected again
-  });
-
-  // Import flow buttons
-  $('#confirmImportBtn').addEventListener('click', confirmImport);
-  $('#cancelImportBtn').addEventListener('click', cancelImport);
-
-  // Filters
-  $('#filterCategory').addEventListener('change', renderTransactions);
-  $('#filterMonth').addEventListener('change', renderTransactions);
-  $('#filterSearch').addEventListener('input', renderTransactions);
-  $('#filterUnclassified').addEventListener('change', renderTransactions);
-  $('#filterUnpaid').addEventListener('change', renderTransactions);
-  $('#filterAiSuggested').addEventListener('change', renderTransactions);
-  $('#summaryMonth').addEventListener('change', renderSummary);
-  $('#summaryCategory').addEventListener('change', renderSummary);
-
-  // Buttons
-  $('#markPaidBtn').addEventListener('click', actions.markFilteredAsPaid);
-  $('#clearFiltersBtn').addEventListener('click', () => {
-    $('#summaryMonth').value = '';
-    $('#summaryCategory').value = '';
-    $('#categoryDetail').style.display = 'none';
-    renderSummary();
-  });
-  $('#addRuleBtn').addEventListener('click', actions.addManualRule);
-  $('#clearRulesBtn').addEventListener('click', actions.clearRules);
-  $('#exportRulesBtn').addEventListener('click', actions.exportRules);
-  $('#exportTransactionsBtn').addEventListener('click', actions.exportTransactions);
-  $('#exportEventsBtn').addEventListener('click', actions.exportEvents);
-  $('#importRulesBtn').addEventListener('click', () => $('#importRulesInput').click());
-  $('#importEventsBtn').addEventListener('click', () => $('#importEventsInput').click());
-  $('#importRulesInput').addEventListener('change', (e) => { 
-    if (e.target.files[0]) actions.importRules(e.target.files[0]); 
-  });
-  $('#importEventsInput').addEventListener('change', (e) => { 
-    if (e.target.files[0]) actions.importEvents(e.target.files[0]); 
-  });
-  $('#clearDataBtn').addEventListener('click', actions.clearAllData);
-
-  // Notice link to export tab
-  $('#goToExport').addEventListener('click', (e) => {
-    e.preventDefault();
-    $$('.tab').forEach(t => t.classList.remove('active'));
-    $$('.tab-content').forEach(c => c.classList.remove('active'));
-    $('[data-tab="data"]').classList.add('active');
-    $('#data').classList.add('active');
-  });
-
-  initOllama();
-
-  // Initial render
-  render();
-  
-  // Debug console (if ?debug in URL)
-  initDebug(render);
-}
-
-// ============================================================
-// AI CLASSIFICATION (Ollama)
-// ============================================================
-
-function initOllama() {
-  const settings = getOllamaSettings();
-  $('#ollamaUrl').value = settings.url;
-
-  async function connect() {
-    const url = $('#ollamaUrl').value.trim() || 'http://localhost:11434';
-    $('#ollamaStatus').textContent = 'Connecting…';
-    try {
-      const models = await listModels(url);
-      const current = getOllamaSettings().model;
-      $('#ollamaModel').innerHTML = models.map(m =>
-        `<option value="${m}" ${m === current ? 'selected' : ''}>${m}</option>`).join('');
-      saveOllamaSettings({ url, model: $('#ollamaModel').value });
-      $('#ollamaStatus').textContent = `✓ ${models.length} models`;
-    } catch {
-      $('#ollamaStatus').textContent =
-        `✗ Can't reach Ollama at ${url}. Is it running, with OLLAMA_ORIGINS allowing ${location.origin}?`;
-    }
-  }
-
-  $('#ollamaConnectBtn').addEventListener('click', connect);
-  $('#ollamaModel').addEventListener('change', () =>
-    saveOllamaSettings({ ...getOllamaSettings(), model: $('#ollamaModel').value }));
-  if (settings.model) {
-    $('#ollamaModel').innerHTML = `<option value="${settings.model}">${settings.model}</option>`;
-  }
-
-  // Insights view is re-rendered on every refresh, so delegate the click
-  document.addEventListener('click', async (e) => {
-    if (!e.target.closest('#aiInsightsBtn')) return;
-    const out = $('#aiInsights');
-    out.textContent = '🤖 Thinking…';
-    try {
-      await summarizeInsights(insightsFacts(), text => { out.textContent = text; });
-    } catch (err) {
-      out.textContent = `✗ ${err.message}`;
-    }
-  });
-
-  let controller = null;
-  $('#aiClassifyBtn').addEventListener('click', async () => {
-    // Second click while running stops it; finished batches are kept
-    if (controller) { controller.abort(); return; }
-    const total = unmatchedGroups().length;
-    if (!total) { $('#aiStatus').textContent = 'Nothing left to classify 🎉'; return; }
-
-    controller = new AbortController();
-    $('#aiClassifyBtn').textContent = '⏹ Stop';
-    $('#aiStatus').textContent = `Asking the model about ${total} merchants…`;
-    try {
-      const count = await suggestCategories({
-        signal: controller.signal,
-        onProgress: (done, all) => {
-          $('#aiStatus').textContent = `🤖 ${done}/${all} merchants…`;
-          actions.refreshView();
-        }
-      });
-      $('#aiStatus').textContent = `🤖 Suggested ${count} categories. Tick "To review" to check them.`;
-    } catch (err) {
-      $('#aiStatus').textContent = err.name === 'AbortError' ? 'Stopped.' : `✗ ${err.message}`;
-    } finally {
-      controller = null;
-      $('#aiClassifyBtn').textContent = '🤖 Suggest categories';
-      actions.refreshView();
-    }
-  });
-}
-
-init();
+render();
+initDebug(rerender);
