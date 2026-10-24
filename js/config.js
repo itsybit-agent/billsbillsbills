@@ -32,7 +32,8 @@ export const EventTypes = {
   PAYMENT_RECORDED: 'PaymentRecorded',
   PAYMENT_UNDONE: 'PaymentUndone',
   MERCHANT_EXCLUDED: 'MerchantExcluded',
-  MERCHANT_INCLUDED: 'MerchantIncluded'
+  MERCHANT_INCLUDED: 'MerchantIncluded',
+  EXPENSE_FILED: 'ExpenseFiled' // ticked off as expensed in the business books
 };
 
 // Default column mapping (SEB format)

@@ -18,7 +18,8 @@ import { EventTypes } from './config.js';
 import { esc, f0, toast } from './ui/kit.js';
 import { home } from './ui/home.js';
 import { sortScreen } from './ui/sort.js';
-import { payScreen, paidScreen } from './ui/pay.js';
+import { payScreen, paidScreen, paymentScreen, paymentRows, paymentText, paymentCsv } from './ui/pay.js';
+import { downloadFile } from './utils.js';
 import { importScreen, allScreen, rulesScreen, importsScreen, dataScreen, aiScreen, lookScreen, insightsScreen } from './ui/more.js';
 import { storyOverlay, slideCount } from './ui/story.js';
 
@@ -27,7 +28,8 @@ const ui = {
   screen: 'home', sortFilter: null, sortFrom: 'home', sortLimit: 0,
   menu: false, story: -1, lastImport: null, search: '', allLimit: 0,
   aiProgress: null, aiStatus: '', models: null,
-  paySelected: new Set() // categories ticked to pay together in one transfer
+  paySelected: new Set(), // categories ticked to pay together in one transfer
+  paymentId: null         // payment whose row list is open
 };
 
 const SCREENS = {
@@ -35,6 +37,7 @@ const SCREENS = {
   sort: { title: () => ui.sortFilter ? `Review ${esc(ui.sortFilter)} guesses` : 'To sort', back: () => ui.sortFrom, render: sortScreen },
   pay: { title: 'To pay', back: 'home', render: payScreen },
   paid: { title: 'Paid history', back: 'home', render: paidScreen },
+  payment: { title: () => esc(state.payments[ui.paymentId]?.category || 'Payment'), back: 'paid', render: paymentScreen },
   import: { title: 'Add bank export', back: 'home', render: importScreen },
   all: { title: 'All transactions', back: 'home', render: allScreen },
   rules: { title: 'Rules', back: 'home', render: rulesScreen },
@@ -148,9 +151,26 @@ function pay(categories) {
   const result = payCategory(categories);
   if (!result) return;
   ui.paySelected.clear();
-  rerender();
   const verb = [].concat(categories).every(isSettleUp) ? 'Settled' : 'Paid';
-  toast(`${verb}: ${esc(result.label)} ${f0(result.amount)}`, () => { result.undo(); rerender(); });
+  // Settling up (Itsybit, …) opens the row list, to check off what's expensed
+  if ([].concat(categories).some(isSettleUp)) {
+    refresh();
+    ui.paymentId = result.paymentId;
+    go('payment');
+  } else {
+    rerender();
+  }
+  toast(`${verb}: ${esc(result.label)} ${f0(result.amount)}`, () => { result.undo(); refresh(); go('pay'); });
+}
+
+function savePaymentFile(kind) {
+  const p = state.payments[ui.paymentId];
+  if (!p) return;
+  const name = `${p.category.replace(/[^\w]+/g, '-').toLowerCase()}-${new Date(p.timestamp).toISOString().slice(0, 10)}.csv`;
+  if (kind === 'csv') { downloadFile(paymentCsv(p), name, 'text/csv'); return; }
+  navigator.clipboard?.writeText(paymentText(p))
+    .then(() => toast('List copied. Paste it into a sheet or your expense tool.'))
+    .catch(() => toast("Couldn't copy here. Try Download CSV."));
 }
 
 let aiController = null;
@@ -220,7 +240,7 @@ document.addEventListener('click', async (e) => {
   if (e.target.closest('#confirmImportBtn')) { confirmImport(); return; }
   if (e.target.closest('#cancelImportBtn')) { cancelImport(); return; }
 
-  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-setskin],[data-themeset],[data-delete]');
+  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-openpay],[data-setskin],[data-themeset],[data-delete]');
   if (!el) return;
   const d = el.dataset;
   // Clicks inside the menu sheet shouldn't close it via the scrim
@@ -233,7 +253,14 @@ document.addEventListener('click', async (e) => {
   if (d.delrule) { actions.deleteRule(d.delrule); return; }
   if (d.pay) { pay(d.pay); return; }
   if (d.review) { ui.sortFrom = 'pay'; go('sort'); ui.sortFilter = d.review; render(); return; }
-  if (d.undo) { undoPayment(d.undo); rerender(); toast('Undone: back in To pay'); return; }
+  if (d.undo) {
+    undoPayment(d.undo);
+    refresh();
+    if (d.back) go(d.back); else render();
+    toast('Undone: back in To pay');
+    return;
+  }
+  if (d.openpay) { ui.paymentId = d.openpay; go('payment'); return; }
   if (d.setskin) { setLook({ skin: d.setskin }); return; }
   if (d.themeset) { setLook({ theme: d.themeset }); return; }
   if (d.delete) { if (confirm('Remove this transaction?')) actions.deleteTransaction(d.delete); render(); return; }
@@ -253,6 +280,16 @@ document.addEventListener('click', async (e) => {
     case 'acceptAll': acceptAll(); break;
     case 'paySelected': pay([...ui.paySelected]); break;
     case 'clearSelection': ui.paySelected.clear(); render(); break;
+    case 'copyPayment': savePaymentFile('text'); break;
+    case 'csvPayment': savePaymentFile('csv'); break;
+    case 'fileAll': {
+      const p = state.payments[ui.paymentId];
+      for (const t of paymentRows(p)) {
+        if (isSettleUp(t.category) && !t.filed) EventStore.append(EventTypes.EXPENSE_FILED, { transactionId: t.id, filed: true });
+      }
+      rerender();
+      break;
+    }
     case 'aiGuess': aiGuess(); break;
     case 'aiStop': aiController?.abort(); break;
     case 'aiConnect': aiConnect(); break;
@@ -273,6 +310,13 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset.filed) {
+    EventStore.append(EventTypes.EXPENSE_FILED, { transactionId: t.dataset.filed, filed: t.checked });
+    const y = window.scrollY;
+    rerender();
+    window.scrollTo({ top: y });
+    return;
+  }
   if (t.dataset.select) {
     if (t.checked) ui.paySelected.add(t.dataset.select);
     else ui.paySelected.delete(t.dataset.select);

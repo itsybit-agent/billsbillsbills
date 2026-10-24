@@ -23,6 +23,7 @@ export function projectState(events) {
           category: null,
           source: null, // 'manual' | 'ai' | 'rule' | null (no rule matched)
           paid: false,
+          filed: false,
           excluded: false
         };
         const day = new Date(event.timestamp).toISOString().substring(0, 10);
@@ -73,6 +74,12 @@ export function projectState(events) {
         }
         break;
       }
+
+      case EventTypes.EXPENSE_FILED:
+        if (state.transactions[event.data.transactionId]) {
+          state.transactions[event.data.transactionId].filed = event.data.filed;
+        }
+        break;
 
       case EventTypes.TRANSACTION_DELETED:
         delete state.transactions[event.data.transactionId];
