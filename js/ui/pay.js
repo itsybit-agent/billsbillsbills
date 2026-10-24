@@ -5,21 +5,35 @@
 
 import { CONFIG } from '../config.js';
 import { state } from '../state.js';
-import { toPay, unknownRows, payments, isSettleUp, amountFor } from '../piles.js';
+import { toPay, unknownRows, payments, isSettleUp, amountFor, unpaidMonths } from '../piles.js';
 import { esc, f0, f2, plain, dayLabel } from './kit.js';
 import { categoriesByUse } from './sort.js';
 
+// Payments whose rows are expanded in a history list (kept across re-renders)
+export const openPaid = new Set();
+
+/** A payment in Home's "Recently paid" or Paid history; tap to see its rows. */
 export function historyRow(p) {
   const filed = expenseProgress(p);
-  return `<div class="hrow ${p.undone ? 'undone' : ''}">
-    <span class="tick" aria-hidden="true">✓</span>
-    <button class="grow linkrow" data-openpay="${p.id}">
-      <div style="font-weight:600">${esc(p.category)}</div>
-      <div class="sub" style="margin:0;font-size:13px">${isSettleUp(p.category) ? 'Settled' : 'Paid'}${p.categories?.length > 1 ? ' together' : ''} ${dayLabel(p.timestamp).toLowerCase()} · ${p.transactionIds.length} rows${filed ? ` · ${filed.done}/${filed.total} expensed` : ''} ›</div>
-    </button>
-    <span class="num" style="font-weight:600">${f0(p.amount)}</span>
-    ${p.undone ? '' : `<button class="btn small ghost" data-undo="${p.id}">Undo</button>`}
-  </div>`;
+  const rows = paymentRows(p);
+  return `<details class="hrow-wrap ${p.undone ? 'undone' : ''}" data-paidrows="${p.id}" ${openPaid.has(p.id) ? 'open' : ''}>
+    <summary class="hrow">
+      <span class="tick" aria-hidden="true">✓</span>
+      <span class="grow">
+        <span style="font-weight:600;display:block">${esc(p.category)}</span>
+        <span class="sub" style="margin:0;font-size:13px;display:block">${p.undone ? 'Undone' : isSettleUp(p.category) ? 'Settled' : 'Paid'}${p.categories?.length > 1 ? ' together' : ''} ${dayLabel(p.timestamp).toLowerCase()} · ${p.transactionIds.length} rows${filed ? ` · ${filed.done}/${filed.total} expensed` : ''}</span>
+      </span>
+      <span class="num" style="font-weight:600">${f0(p.amount)}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </summary>
+    <div class="hrow-body">
+      ${rows.map(t => `<div class="payline"><span class="grow">${t.date.substring(5)} · ${esc(t.description)}${p.categories.length > 1 ? ` <span class="sub">· ${esc(t.category)}</span>` : ''}</span><span class="num">${f2(t.amount)}</span></div>`).join('')}
+      <div class="actions" style="justify-content:flex-end;padding-top:8px">
+        <button class="btn small ghost" data-openpay="${p.id}">${filed ? 'Tick off expensed ›' : 'Open list ›'}</button>
+        ${p.undone ? '' : `<button class="btn small ghost" data-undo="${p.id}">Undo payment</button>`}
+      </div>
+    </div>
+  </details>`;
 }
 
 /** Rows of a payment that still exist, newest first. */
@@ -122,21 +136,31 @@ function payRow(c, selected) {
   </div>`;
 }
 
+const monthName = m => new Date(`${m}-01`).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+
 export function payScreen(ui) {
-  const pay = toPay();
+  const months = unpaidMonths();
+  // A month that got fully paid falls back to all months
+  if (ui.payMonth && !months.some(m => m.month === ui.payMonth)) ui.payMonth = '';
+  const month = ui.payMonth;
+  const pay = toPay(month);
   const open = new Set([...pay.spend, ...pay.settle].map(c => c.category));
   // Drop selections whose category got paid or emptied meanwhile
   for (const c of ui.paySelected) if (!open.has(c)) ui.paySelected.delete(c);
   const selected = ui.paySelected;
-  const selectedAmount = amountFor([...selected]);
+  const selectedAmount = amountFor([...selected], month);
   openRows = ui.openRows;
   cats = categoriesByUse();
-  const unknown = unknownRows();
+  const unknown = unknownRows(month);
   const paidToday = payments()
     .filter(p => !p.undone && dayLabel(p.timestamp) === 'Today')
     .reduce((s, p) => s + p.amount, 0);
 
   return `
+    ${months.length > 1 ? `<select class="select month-pick" id="payMonth" aria-label="Which month to pay">
+      <option value="">All months · ${f0(months.reduce((s, m) => s + m.amount, 0))}</option>
+      ${months.map(m => `<option value="${m.month}" ${m.month === month ? 'selected' : ''}>${monthName(m.month)} · ${f0(m.amount)}</option>`).join('')}
+    </select>` : ''}
     ${unknown.count ? `<div class="hint"><span>${unknown.count} row${unknown.count > 1 ? 's' : ''} (${f0(unknown.amount)}) still need a category and aren't in any amount yet.</span><button class="btn small ghost" data-act="sortAll">Sort</button></div>` : ''}
     ${pay.count ? '' : '<section class="card"><div class="h2">Nothing to pay right now</div><p class="sub">New imports add to this pile.</p></section>'}
     ${pay.count > 1 && !selected.size ? '<p class="sub" style="margin:0">Paying several in one transfer? Tick them and pay them together.</p>' : ''}
@@ -154,7 +178,7 @@ export function payScreen(ui) {
     </div>` : `
     <div class="sticky">
       <div class="grow">
-        <b><span class="num">${f0(pay.total)}</span> left to pay</b>
+        <b><span class="num">${f0(pay.total)}</span> left to pay${month ? ` in ${monthName(month).split(' ')[0]}` : ''}</b>
         <div style="font-size:12px;opacity:.75">${paidToday ? `${f0(paidToday)} paid today` : 'Pay any category whenever you like'}</div>
       </div>
       <button class="btn" data-go="paid">History</button>

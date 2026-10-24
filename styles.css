@@ -172,11 +172,22 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .payrow details .payline { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; padding: 8px 0; border-top: 1px var(--rule-style) var(--line); }
 .payline .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
 .payline__acts { flex-basis: 100%; display: flex; gap: 12px; align-items: center; justify-content: flex-end; }
+.month-pick { width: 100%; padding: 11px 12px; font-weight: 600; }
 .mini-select { padding: 4px 6px; font-size: 13px; }
 .hrow { display: flex; gap: 10px; align-items: center; padding: 11px 14px; border-top: 1px var(--rule-style) var(--line); }
 .hrow:first-child { border-top: 0; }
 .hrow .grow { flex: 1; min-width: 0; }
 .hrow.undone { opacity: .45; text-decoration: line-through; }
+.hrow-wrap { border-top: 1px var(--rule-style) var(--line); }
+.hrow-wrap:first-child { border-top: 0; }
+.hrow-wrap > summary { list-style: none; cursor: pointer; border-top: 0; }
+.hrow-wrap > summary::-webkit-details-marker { display: none; }
+.hrow-wrap.undone > summary { opacity: .45; text-decoration: line-through; }
+.hrow-wrap .chev { color: var(--muted); transition: transform .15s; }
+.hrow-wrap[open] .chev { transform: rotate(90deg); }
+.hrow-body { padding: 0 14px 12px 50px; font-size: 13px; color: var(--muted); }
+.hrow-body .payline { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px var(--rule-style) var(--line); }
+.hrow-body .payline .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
 .linkrow { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; min-width: 0; }
 .li.filed .t, .li.filed .amt { color: var(--muted); }
 .tick { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 13px; flex: none; }

@@ -18,7 +18,7 @@ import { EventTypes } from './config.js';
 import { esc, f0, toast } from './ui/kit.js';
 import { home } from './ui/home.js';
 import { sortScreen } from './ui/sort.js';
-import { payScreen, paidScreen, paymentScreen, paymentRows, paymentText, paymentCsv } from './ui/pay.js';
+import { payScreen, paidScreen, paymentScreen, paymentRows, paymentText, paymentCsv, openPaid } from './ui/pay.js';
 import { downloadFile } from './utils.js';
 import { importScreen, allScreen, rulesScreen, importsScreen, dataScreen, aiScreen, lookScreen, insightsScreen } from './ui/more.js';
 import { storyOverlay, slideCount } from './ui/story.js';
@@ -30,6 +30,7 @@ const ui = {
   aiProgress: null, aiStatus: '', models: null,
   paySelected: new Set(), // categories ticked to pay together in one transfer
   openRows: new Set(),    // To pay categories whose row list is expanded
+  payMonth: '',           // 'YYYY-MM' to pay only that month's rows, '' for all
   paymentId: null         // payment whose row list is open
 };
 
@@ -149,7 +150,7 @@ function acceptAll() {
 
 /** Pay one category, or several ticked ones as a single transfer. */
 function pay(categories) {
-  const result = payCategory(categories);
+  const result = payCategory(categories, ui.payMonth);
   if (!result) return;
   ui.paySelected.clear();
   const verb = [].concat(categories).every(isSettleUp) ? 'Settled' : 'Paid';
@@ -173,9 +174,10 @@ function keepScroll(fn) {
 
 // Remember which To pay row lists are open, so a re-render keeps them open
 document.addEventListener('toggle', (e) => {
-  const rows = e.target.dataset?.rows;
-  if (!rows) return;
-  if (e.target.open) ui.openRows.add(rows); else ui.openRows.delete(rows);
+  const set = e.target.dataset?.rows ? ui.openRows : e.target.dataset?.paidrows ? openPaid : null;
+  if (!set) return;
+  const key = e.target.dataset.rows || e.target.dataset.paidrows;
+  if (e.target.open) set.add(key); else set.delete(key);
 }, true);
 
 function savePaymentFile(kind) {
@@ -336,6 +338,7 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.id === 'payMonth') { ui.payMonth = t.value; ui.paySelected.clear(); render(); return; }
   if (t.dataset.reclass) {
     const tx = state.transactions[t.dataset.reclass];
     const from = tx.category;
