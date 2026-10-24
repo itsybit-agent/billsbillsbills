@@ -2,7 +2,7 @@
  * State projection from events
  */
 
-import { CONFIG, EventTypes } from './config.js';
+import { CONFIG, EventTypes, isPaymentRow } from './config.js';
 import { EventStore } from './event-store.js';
 
 export function projectState(events) {
@@ -103,7 +103,8 @@ export function projectState(events) {
 
   for (const tx of Object.values(state.transactions)) {
     const desc = tx.description.toLowerCase();
-    tx.excluded = [...state.excluded].some(p => desc.includes(p));
+    // Payments to the card that older imports let through count as "not an expense"
+    tx.excluded = isPaymentRow(tx.description) || [...state.excluded].some(p => desc.includes(p));
     // Auto-classify unclassified transactions
     if (!tx.category) {
       const category = matchRule(tx.description, state.rules);

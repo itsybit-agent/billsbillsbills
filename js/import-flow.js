@@ -4,7 +4,7 @@
 
 import { $, escapeHTML } from './utils.js';
 import { readFileRows } from './parser.js';
-import { CONFIG, getColumnMapping, saveColumnMapping, DEFAULT_MAPPING, BUILTIN_MAPPINGS } from './config.js';
+import { CONFIG, getColumnMapping, saveColumnMapping, DEFAULT_MAPPING, BUILTIN_MAPPINGS, isPaymentRow } from './config.js';
 import { EventTypes } from './config.js';
 import { EventStore } from './event-store.js';
 import { state, refresh } from './state.js';
@@ -100,12 +100,18 @@ async function importWithMapping(mapping) {
     existing.get(key).push(tx.id);
   }
 
+  // Dedupe by count, not just presence: two identical purchases on one day
+  // (two SL tickets) are real. If one is already here, add only the other.
+  const alreadyHave = new Map([...existing].map(([key, ids]) => [key, ids.length]));
   const importedIds = [];
   for (const tx of transactions) {
-    if (!existing.has(txKey(tx))) {
-      EventStore.append(EventTypes.TRANSACTION_IMPORTED, tx);
-      importedIds.push(tx.id);
+    const key = txKey(tx);
+    if (alreadyHave.get(key) > 0) {
+      alreadyHave.set(key, alreadyHave.get(key) - 1);
+      continue;
     }
+    EventStore.append(EventTypes.TRANSACTION_IMPORTED, tx);
+    importedIds.push(tx.id);
   }
   const imported = importedIds.length;
 
@@ -206,7 +212,7 @@ function parseRowsWithMapping(rows, mapping) {
 
     // Non-expense rows (deposits, pending authorizations, …) are recorded rather
     // than dropped, so the caller can retract earlier imports of the same row.
-    if (mapping.skipPatterns?.some(p => row.some(cell => String(cell).includes(p)))) {
+    if (isPaymentRow(tx.description) || mapping.skipPatterns?.some(p => row.some(cell => String(cell).includes(p)))) {
       skipped.push(tx);
       continue;
     }

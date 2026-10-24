@@ -55,6 +55,8 @@ export const DEFAULT_MAPPING = {
 // (card repayments / incoming deposits, the Bank Norwegian analog of SEB's
 // Inbetalning — Type "Betalning" covers rows like "Fra …" and "Inbetalning").
 // Real purchases are Type "Köp", so matching "Betalning" never touches them.
+// Patterns are case-sensitive, so "Betalning" doesn't catch a row whose only
+// marker is the text "Inbetalning" — list that too.
 export const BANK_NORWEGIAN_MAPPING = {
   name: 'Bank Norwegian',
   headerPattern: 'TransactionDate',
@@ -62,9 +64,14 @@ export const BANK_NORWEGIAN_MAPPING = {
   descriptionCol: 1,
   locationCol: 7,
   amountCol: 6,
-  skipPatterns: ['Reserverat', 'Avbetalning', 'Betalning'],
+  skipPatterns: ['Reserverat', 'Avbetalning', 'Betalning', 'Inbetalning'],
   expensesOnly: false
 };
+
+// Rows that are payments to the card, never spending, whatever bank or
+// column layout they came in with. Checked against the description.
+export const PAYMENT_DESCRIPTIONS = /^\s*(inbetalning|avbetalning)\b/i;
+export const isPaymentRow = description => PAYMENT_DESCRIPTIONS.test(description || '');
 
 // Built-in formats, tried in order during auto-detection.
 export const BUILTIN_MAPPINGS = [DEFAULT_MAPPING, BANK_NORWEGIAN_MAPPING];
