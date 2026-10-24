@@ -2,7 +2,7 @@
  * State projection from events
  */
 
-import { CONFIG, EventTypes } from './config.js';
+import { CONFIG, EventTypes, isPaymentRow } from './config.js';
 import { EventStore } from './event-store.js';
 
 export function projectState(events) {
@@ -23,6 +23,7 @@ export function projectState(events) {
           category: null,
           source: null, // 'manual' | 'ai' | 'rule' | null (no rule matched)
           paid: false,
+          filed: false,
           excluded: false
         };
         const day = new Date(event.timestamp).toISOString().substring(0, 10);
@@ -74,6 +75,12 @@ export function projectState(events) {
         break;
       }
 
+      case EventTypes.EXPENSE_FILED:
+        if (state.transactions[event.data.transactionId]) {
+          state.transactions[event.data.transactionId].filed = event.data.filed;
+        }
+        break;
+
       case EventTypes.TRANSACTION_DELETED:
         delete state.transactions[event.data.transactionId];
         break;
@@ -103,7 +110,8 @@ export function projectState(events) {
 
   for (const tx of Object.values(state.transactions)) {
     const desc = tx.description.toLowerCase();
-    tx.excluded = [...state.excluded].some(p => desc.includes(p));
+    // Payments to the card that older imports let through count as "not an expense"
+    tx.excluded = isPaymentRow(tx.description) || [...state.excluded].some(p => desc.includes(p));
     // Auto-classify unclassified transactions
     if (!tx.category) {
       const category = matchRule(tx.description, state.rules);

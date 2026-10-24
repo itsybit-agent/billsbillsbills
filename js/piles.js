@@ -24,6 +24,10 @@ export function extractPattern(description) {
   if (start < 0) return base.replace(/\d+/g, '').trim().toLowerCase();
   let end = start;
   if (words[start + 1] && isName(words[start + 1])) end = start + 1;
+  // A short single word ("cura" from "SP CURA OF SWEDEN") would match too much:
+  // take the following words as well, up to two more without digits
+  const len = () => words[end].index + words[end][0].length - words[start].index;
+  while (len() < 8 && end - start < 2 && words[end + 1] && !/\d/.test(words[end + 1][0])) end++;
   return base.slice(words[start].index, words[end].index + words[end][0].length).toLowerCase();
 }
 
@@ -48,6 +52,28 @@ export function toSort() {
   return [...groups.values()]
     .map(g => ({ ...g, dates: g.txs.map(t => t.date).sort() }))
     .sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Fix one row's category. If a rule put it there, the rule was wrong for this
+ * merchant, so point the rule at the new category too (its other rows follow).
+ */
+export function reclassifyRow(tx, category) {
+  const before = { category: tx.source ? tx.category : null, source: tx.source };
+  EventStore.append(EventTypes.TRANSACTION_CLASSIFIED, { transactionId: tx.id, category });
+  const pattern = extractPattern(tx.description);
+  const oldRule = state.rules[pattern];
+  const learn = pattern.length >= 3 && oldRule !== category;
+  if (learn) EventStore.append(EventTypes.RULE_CREATED, { pattern, category });
+  return {
+    pattern: learn ? pattern : null,
+    undo() {
+      EventStore.append(EventTypes.TRANSACTION_CLASSIFIED, { transactionId: tx.id, ...before });
+      if (!learn) return;
+      if (oldRule) EventStore.append(EventTypes.RULE_CREATED, { pattern, category: oldRule });
+      else EventStore.append(EventTypes.RULE_DELETED, { pattern });
+    }
+  };
 }
 
 /** Put every row of a merchant in a category and learn a rule for it. */
@@ -89,10 +115,11 @@ export const isSettleUp = category => category in CONFIG.settleUp;
  * Unpaid amount per category. Rows no rule matched aren't in any amount yet;
  * rows the AI guessed are, flagged so the UI can say so.
  */
-export function toPay() {
+export function toPay(month = '') {
   const byCategory = {};
   for (const tx of spending()) {
     if (tx.paid || !tx.source) continue;
+    if (month && !tx.date.startsWith(month)) continue;
     const c = (byCategory[tx.category] ||= { category: tx.category, amount: 0, txs: [], aiAmount: 0, aiMerchants: new Set() });
     c.amount += tx.amount;
     c.txs.push(tx);
@@ -111,15 +138,26 @@ export function toPay() {
 }
 
 /** Rows that aren't in any To pay amount because nothing sorted them yet. */
-export function unknownRows() {
-  const txs = spending().filter(t => !t.source && !t.paid);
+export function unknownRows(month = '') {
+  const txs = spending().filter(t => !t.source && !t.paid && (!month || t.date.startsWith(month)));
   return { count: txs.length, amount: txs.reduce((s, t) => s + t.amount, 0) };
 }
 
-/** Pay one category, or several together as one bank transfer. */
-export function payCategory(categories) {
+/** Months (YYYY-MM) that still have something to pay, newest first, with their totals. */
+export function unpaidMonths() {
+  const months = {};
+  for (const tx of spending()) {
+    if (tx.paid || !tx.source) continue;
+    const m = tx.date.substring(0, 7);
+    months[m] = (months[m] || 0) + tx.amount;
+  }
+  return Object.entries(months).sort((a, b) => b[0].localeCompare(a[0])).map(([month, amount]) => ({ month, amount }));
+}
+
+/** Pay one category, or several together as one bank transfer — only `month`'s rows when given. */
+export function payCategory(categories, month = '') {
   categories = [].concat(categories);
-  const pay = toPay();
+  const pay = toPay(month);
   const groups = [...pay.spend, ...pay.settle].filter(c => categories.includes(c.category) && c.txs.length);
   if (!groups.length) return null;
   const amount = groups.reduce((s, g) => s + g.amount, 0);
@@ -135,8 +173,8 @@ export function payCategory(categories) {
 }
 
 /** Combined unpaid amount of the given categories. */
-export function amountFor(categories) {
-  const pay = toPay();
+export function amountFor(categories, month = '') {
+  const pay = toPay(month);
   return [...pay.spend, ...pay.settle].filter(c => categories.includes(c.category)).reduce((s, c) => s + c.amount, 0);
 }
 
