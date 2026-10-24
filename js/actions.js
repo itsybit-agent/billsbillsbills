@@ -17,6 +17,8 @@ function doRefresh() {
   refresh(renderFn);
 }
 
+export const refreshView = doRefresh;
+
 // ============================================================
 // TRANSACTIONS
 // ============================================================

@@ -271,3 +271,37 @@ h3 { margin: var(--spacing-md) 0 var(--spacing-sm); }
   transition: opacity 0.15s, color 0.15s;
 }
 .btn-delete:hover { opacity: 1; color: var(--color-primary); }
+
+.ai-badge {
+  background: none;
+  border: 1px dashed var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 1px 4px;
+  margin-left: 4px;
+  border-radius: 4px;
+}
+.ai-badge:hover { border-style: solid; border-color: var(--color-primary); }
+
+/* Pay */
+.pay-header { display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md, 1rem); margin-bottom: 1rem; }
+.pay-list { list-style: none; padding: 0; margin: 0; }
+.pay-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0; border-bottom: 1px solid var(--color-border, #ddd); }
+.pay-row details { flex: 1; min-width: 0; }
+.pay-row summary { display: flex; gap: 0.75rem; align-items: baseline; cursor: pointer; padding-top: 0.4rem; }
+.pay-row__category { font-weight: 600; }
+.pay-row__count { color: var(--color-text-muted); font-size: 0.85rem; }
+.pay-row__amount { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.pay-row__actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.pay-row .table { margin-top: 0.5rem; font-size: 0.85rem; }
+
+/* Insights */
+.insight-highlights { padding-left: 1.2rem; line-height: 1.6; }
+.insight-change { font-size: 0.85rem; color: var(--color-text-muted); }
+.insight-change--up { color: var(--color-primary); }
+.insight-change--down { color: var(--color-success); }
+.insight-ai { white-space: pre-wrap; margin-top: 0.75rem; line-height: 1.5; }
+.insight-bars { display: flex; align-items: flex-end; gap: 4px; height: 160px; }
+.insight-bar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.insight-bar__fill { background: var(--color-primary); border-radius: 3px 3px 0 0; min-height: 2px; }
+.insight-bar__label { font-size: 0.7rem; text-align: center; color: var(--color-text-muted); margin-top: 2px; }

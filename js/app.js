@@ -8,6 +8,10 @@ import { setRenderFunction } from './actions.js';
 import { setRenderFunction as setImportRenderFn, startImportFlow, cancelImport, confirmImport } from './import-flow.js';
 import { initDebug } from './debug.js';
 import * as actions from './actions.js';
+import { state } from './state.js';
+import { getOllamaSettings, saveOllamaSettings, listModels, suggestCategories, unmatchedGroups, summarizeInsights } from './ollama.js';
+import { payCategory, undoPay } from './pay.js';
+import { insightsFacts } from './insights.js';
 
 // Connect actions to render function
 setRenderFunction(render);
@@ -39,6 +43,26 @@ document.addEventListener('click', (e) => {
       $('#categoryDetail').style.display = 'none';
       renderSummary();
       break;
+    case 'confirm-ai':
+      actions.classifyTransaction(target.dataset.id, state.transactions[target.dataset.id].category);
+      break;
+    case 'pay-category':
+      payCategory(target.dataset.category);
+      actions.refreshView();
+      break;
+    case 'undo-pay':
+      undoPay();
+      actions.refreshView();
+      break;
+    case 'copy-amount': {
+      // Bank forms want "1234,50": no thousands separator, decimal comma
+      const amount = String(target.dataset.amount).replace('.', ',');
+      navigator.clipboard?.writeText(amount).then(() => {
+        target.textContent = '✓';
+        setTimeout(() => { target.textContent = '📋'; }, 1200);
+      });
+      break;
+    }
     case 'delete-rule':
       actions.deleteRule(target.dataset.pattern);
       break;
@@ -99,6 +123,7 @@ function init() {
   $('#filterSearch').addEventListener('input', renderTransactions);
   $('#filterUnclassified').addEventListener('change', renderTransactions);
   $('#filterUnpaid').addEventListener('change', renderTransactions);
+  $('#filterAiSuggested').addEventListener('change', renderTransactions);
   $('#summaryMonth').addEventListener('change', renderSummary);
   $('#summaryCategory').addEventListener('change', renderSummary);
 
@@ -134,11 +159,85 @@ function init() {
     $('#data').classList.add('active');
   });
 
+  initOllama();
+
   // Initial render
   render();
   
   // Debug console (if ?debug in URL)
   initDebug(render);
+}
+
+// ============================================================
+// AI CLASSIFICATION (Ollama)
+// ============================================================
+
+function initOllama() {
+  const settings = getOllamaSettings();
+  $('#ollamaUrl').value = settings.url;
+
+  async function connect() {
+    const url = $('#ollamaUrl').value.trim() || 'http://localhost:11434';
+    $('#ollamaStatus').textContent = 'Connecting…';
+    try {
+      const models = await listModels(url);
+      const current = getOllamaSettings().model;
+      $('#ollamaModel').innerHTML = models.map(m =>
+        `<option value="${m}" ${m === current ? 'selected' : ''}>${m}</option>`).join('');
+      saveOllamaSettings({ url, model: $('#ollamaModel').value });
+      $('#ollamaStatus').textContent = `✓ ${models.length} models`;
+    } catch {
+      $('#ollamaStatus').textContent =
+        `✗ Can't reach Ollama at ${url}. Is it running, with OLLAMA_ORIGINS allowing ${location.origin}?`;
+    }
+  }
+
+  $('#ollamaConnectBtn').addEventListener('click', connect);
+  $('#ollamaModel').addEventListener('change', () =>
+    saveOllamaSettings({ ...getOllamaSettings(), model: $('#ollamaModel').value }));
+  if (settings.model) {
+    $('#ollamaModel').innerHTML = `<option value="${settings.model}">${settings.model}</option>`;
+  }
+
+  // Insights view is re-rendered on every refresh, so delegate the click
+  document.addEventListener('click', async (e) => {
+    if (!e.target.closest('#aiInsightsBtn')) return;
+    const out = $('#aiInsights');
+    out.textContent = '🤖 Thinking…';
+    try {
+      await summarizeInsights(insightsFacts(), text => { out.textContent = text; });
+    } catch (err) {
+      out.textContent = `✗ ${err.message}`;
+    }
+  });
+
+  let controller = null;
+  $('#aiClassifyBtn').addEventListener('click', async () => {
+    // Second click while running stops it; finished batches are kept
+    if (controller) { controller.abort(); return; }
+    const total = unmatchedGroups().length;
+    if (!total) { $('#aiStatus').textContent = 'Nothing left to classify 🎉'; return; }
+
+    controller = new AbortController();
+    $('#aiClassifyBtn').textContent = '⏹ Stop';
+    $('#aiStatus').textContent = `Asking the model about ${total} merchants…`;
+    try {
+      const count = await suggestCategories({
+        signal: controller.signal,
+        onProgress: (done, all) => {
+          $('#aiStatus').textContent = `🤖 ${done}/${all} merchants…`;
+          actions.refreshView();
+        }
+      });
+      $('#aiStatus').textContent = `🤖 Suggested ${count} categories. Tick "To review" to check them.`;
+    } catch (err) {
+      $('#aiStatus').textContent = err.name === 'AbortError' ? 'Stopped.' : `✗ ${err.message}`;
+    } finally {
+      controller = null;
+      $('#aiClassifyBtn').textContent = '🤖 Suggest categories';
+      actions.refreshView();
+    }
+  });
 }
 
 init();
