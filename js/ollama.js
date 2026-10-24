@@ -43,7 +43,7 @@ export async function listModels(url) {
 export function unmatchedGroups() {
   const groups = new Map();
   for (const tx of Object.values(state.transactions)) {
-    if (tx.source) continue;
+    if (tx.source || tx.excluded) continue;
     const key = tx.description.toLowerCase();
     if (!groups.has(key)) groups.set(key, { description: tx.description, location: tx.location, amount: tx.amount, ids: [] });
     groups.get(key).ids.push(tx.id);

@@ -10,6 +10,13 @@ export const CONFIG = {
     'Car', 'Health', 'Itsybit', 'Clothes', 'Leisure', 'Home',
     'Travel', 'Christmas', 'Birthday', 'Jocelyn', 'Fredde', 'Other'
   ],
+  // Categories that are a person or the business rather than a kind of
+  // spending: paying them is "settling up".
+  settleUp: {
+    Itsybit: 'Business costs on the shared card',
+    Jocelyn: "Jocelyn's own purchases",
+    Fredde: "Fredde's own purchases"
+  },
   locale: 'sv-SE',
   currency: 'SEK'
 };
@@ -21,7 +28,11 @@ export const EventTypes = {
   TRANSACTION_DELETED: 'TransactionDeleted',
   RULE_CREATED: 'RuleCreated',
   RULE_DELETED: 'RuleDeleted',
-  CATEGORY_ADDED: 'CategoryAdded'
+  CATEGORY_ADDED: 'CategoryAdded',
+  PAYMENT_RECORDED: 'PaymentRecorded',
+  PAYMENT_UNDONE: 'PaymentUndone',
+  MERCHANT_EXCLUDED: 'MerchantExcluded',
+  MERCHANT_INCLUDED: 'MerchantIncluded'
 };
 
 // Default column mapping (SEB format)
