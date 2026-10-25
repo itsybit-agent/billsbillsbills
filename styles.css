@@ -76,6 +76,7 @@ html[data-skin="kvitto"] .num, :root:not([data-skin]) .num { font-size: .92em; l
 button, input, select { font: inherit; color: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.app.app--wide { max-width: 1120px; }
 .app { max-width: 560px; margin: 0 auto; min-height: 100vh; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .bar { display: flex; align-items: center; gap: 8px; padding: 12px 0; background: var(--bg); position: sticky; top: 0; z-index: 5; }
 .bar h1 { font-family: var(--f-display); text-transform: var(--title-case); font-size: 19px; margin: 0; flex: 1; font-weight: 700; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -302,6 +303,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .tr-tip .tr-swatch { box-shadow: 0 0 0 1px var(--surface); }
 .tr-table summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .tr-grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.app--wide .tr-grid-list { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .tr-mini { background: var(--surface); border: 1px var(--rule-style) var(--line); border-radius: var(--r-card); padding: 10px; display: grid; gap: 6px; text-align: left; cursor: pointer; min-width: 0; }
 .tr-mini.on { border: 2px solid var(--accent); padding: 9px; }
 .tr-mini__head { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; min-width: 0; }
