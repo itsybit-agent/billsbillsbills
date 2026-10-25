@@ -177,7 +177,7 @@ export function trendsSection(ui) {
         <div class="h2" style="font-size:20px">${esc(view.title)}</div>
         <p class="sub" style="margin:2px 0 0">${f0(Math.round(view.total))} from ${shortMonth(data.months[0])} to ${longMonth(data.months.at(-1))} · avg ${f0(Math.round(view.avg))}/month, shown as the line</p>
       </div>
-      ${stacked ? `<div class="tr-legend">${view.series.map(s => `<span>${swatch(s)}${esc(s.category)} <b class="num">${f0(Math.round(s.total))}</b> · ${f0(Math.round(avgOf(s)))}/mo</span>`).join('')}</div>` : ''}
+      ${stacked ? `<div class="tr-legend">${view.series.map(s => `<span>${swatch(s)}${esc(s.category)} <b class="num">${f0(Math.round(avgOf(s)))}/mo</b> · ${f0(Math.round(s.total))} total</span>`).join('')}</div>` : ''}
       <div class="tr-chart">
         ${chartSVG(data.months, view.series, { width })}
         <div class="tr-tip" hidden></div>
@@ -282,7 +282,7 @@ export async function chartImage(ui) {
     g.font = `400 28px ${body}`;
     let x = 72, row = 300;
     for (const s of view.series) {
-      const label = `${s.category} ${f0(Math.round(s.total))} · ${f0(Math.round(s.total / data.months.length))}/mo`;
+      const label = `${s.category} ${f0(Math.round(s.total / data.months.length))}/mo · ${f0(Math.round(s.total))} total`;
       const w = 34 + g.measureText(label).width + 36;
       if (x + w > S - 72) { x = 72; row += 44; }
       g.fillStyle = fill(s);
