@@ -277,19 +277,29 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* trends (Insights) */
-.trend-filters { display: flex; gap: 8px; align-items: center; }
-.trend-filters .select { flex: 1; min-width: 0; padding: 10px; font-weight: 600; }
+.trend-filters { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.tr-chips .chip { display: inline-flex; align-items: center; gap: 6px; }
+.tr-chips .chip.on { background: var(--surface); color: var(--ink); border: 2px solid var(--ink); padding: 7px 11px; }
+.tr-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.tr-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tr-legend b { color: var(--ink); font-weight: 600; }
+.tr-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); flex: none; }
+.tr-mini__head b .tr-swatch { margin-right: 5px; vertical-align: 0; }
 .tr-chart { position: relative; }
 .tr-svg { width: 100%; height: auto; display: block; overflow: visible; }
 .tr-svg--mini { height: 48px; }
 .tr-col { fill: var(--accent); }
-.tr-col--hover { fill: color-mix(in srgb, var(--accent) 75%, var(--ink)); }
+.tr-chart.hovering .tr-col:not(.tr-col--hover) { opacity: .4; }
+.tr-col { transition: opacity .12s; }
 .tr-grid, .tr-base { stroke: var(--line); stroke-width: 1; }
 .tr-avg { stroke: var(--muted); stroke-width: 1; }
 .tr-tick { fill: var(--muted); font-size: 10px; font-family: var(--f-body); font-variant-numeric: tabular-nums; }
 .tr-cap { fill: var(--ink); font-size: 11px; font-weight: 700; font-family: var(--f-body); }
 .tr-hit { fill: transparent; cursor: pointer; outline: none; }
-.tr-tip { position: absolute; top: -6px; transform: translateX(-50%); background: var(--ink); color: var(--surface); font-size: 13px; padding: 5px 9px; border-radius: var(--r-btn); white-space: nowrap; pointer-events: none; }
+.tr-tip { position: absolute; top: -6px; transform: translateX(-50%); background: var(--ink); color: var(--surface); font-size: 13px; padding: 6px 10px; border-radius: var(--r-btn); white-space: nowrap; pointer-events: none; display: grid; gap: 2px; z-index: 2; }
+.tr-tip[hidden] { display: none; }
+.tr-tip div { display: flex; align-items: center; gap: 6px; }
+.tr-tip .tr-swatch { box-shadow: 0 0 0 1px var(--surface); }
 .tr-table summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .tr-grid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .tr-mini { background: var(--surface); border: 1px var(--rule-style) var(--line); border-radius: var(--r-card); padding: 10px; display: grid; gap: 6px; text-align: left; cursor: pointer; min-width: 0; }
@@ -297,3 +307,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .tr-mini__head { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; min-width: 0; }
 .tr-mini__head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tr-mini__head .num { color: var(--muted); white-space: nowrap; font-size: 12px; }
+
+/* Categorical palette for comparing categories (dataviz reference, slots 1–6).
+   Validated against every look's chart surface: all checks pass, light and dark.
+   On light surfaces aqua, yellow and magenta sit below 3:1 — the legend's
+   totals and the numbers table carry the values (relief rule). */
+html { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; }
+}
+html[data-theme="dark"] { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; }
+.tr-s1 { fill: var(--s1); background: var(--s1); }
+.tr-s2 { fill: var(--s2); background: var(--s2); }
+.tr-s3 { fill: var(--s3); background: var(--s3); }
+.tr-s4 { fill: var(--s4); background: var(--s4); }
+.tr-s5 { fill: var(--s5); background: var(--s5); }
+.tr-s6 { fill: var(--s6); background: var(--s6); }
