@@ -13,7 +13,7 @@ import { initDebug } from './debug.js';
 import { toSort, confirmMerchant, excludeMerchant, payCategory, undoPayment, isSettleUp, reclassifyRow } from './piles.js';
 import { getOllamaSettings, saveOllamaSettings, listModels, suggestCategories, summarizeInsights } from './ollama.js';
 import { renderInsights, insightsFacts } from './insights.js';
-import { wireTrendTooltips, chartImage } from './ui/trends.js';
+import { wireTrendTooltips, chartImage, toggleTrendCategory, MAX_COMPARE } from './ui/trends.js';
 import { EventStore } from './event-store.js';
 import { EventTypes } from './config.js';
 import { esc, f0, toast } from './ui/kit.js';
@@ -84,7 +84,7 @@ function render() {
     <button class="icon" data-act="menu" aria-label="Menu">☰</button>`;
   $('#screen').innerHTML = screen.render(ui);
   renderOverlay();
-  if (ui.screen === 'insights') { renderInsights(); wireTrendTooltips(); }
+  if (ui.screen === 'insights') { renderInsights(); wireTrendTooltips(ui); }
   if (ui.screen === 'import') wireDropZone();
 }
 
@@ -310,7 +310,14 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (d.openpay) { ui.paymentId = d.openpay; go('payment'); return; }
-  if (d.trend) { ui.trendCat = d.trend; render(); document.querySelector('.trends')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if (d.trend) {
+    // From the small multiples further down, bring the chart into view
+    const fromGrid = !!el.closest('.tr-grid-list');
+    if (!toggleTrendCategory(ui, d.trend)) { toast(`Compare up to ${MAX_COMPARE} categories at a time`); return; }
+    keepScroll(render);
+    if (fromGrid) document.querySelector('.trends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   if (d.paidrow) {
     // Paid outside the app (or already settled): just this row leaves To pay
     const tx = state.transactions[d.paidrow];
@@ -343,6 +350,7 @@ document.addEventListener('click', async (e) => {
     case 'clearSelection': ui.paySelected.clear(); render(); break;
     case 'copyPayment': savePaymentFile('text'); break;
     case 'shareChart': shareChart(); break;
+    case 'trendTotal': ui.trendSel?.clear(); keepScroll(render); break;
     case 'csvPayment': savePaymentFile('csv'); break;
     case 'fileAll': {
       const p = state.payments[ui.paymentId];
@@ -373,7 +381,6 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('change', (e) => {
   rememberOpenLists();
   const t = e.target;
-  if (t.id === 'trendCat') { ui.trendCat = t.value; render(); return; }
   if (t.id === 'payMonth') { ui.payMonth = t.value; ui.paySelected.clear(); render(); return; }
   if (t.dataset.reclass) {
     const tx = state.transactions[t.dataset.reclass];
