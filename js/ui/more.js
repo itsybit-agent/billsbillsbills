@@ -8,6 +8,7 @@ import { lastBackup } from '../actions.js';
 import { getOllamaSettings } from '../ollama.js';
 import { esc, f0, f2, dayLabel } from './kit.js';
 import { categoriesByUse } from './sort.js';
+import { trendsSection } from './trends.js';
 
 export function importScreen(ui) {
   const s = ui.lastImport;
@@ -148,6 +149,6 @@ export function lookScreen() {
     </div>`;
 }
 
-export function insightsScreen() {
-  return '<div id="insightsView"></div>';
+export function insightsScreen(ui) {
+  return `${trendsSection(ui)}<div id="insightsView"></div>`;
 }
