@@ -30,6 +30,11 @@ function merchantName(description) {
 // Card repayments and interest aren't spending
 const NOT_SPENDING = /^(inbetalning|betalning|ränta|rente)\b/i;
 
+/** Rows that count as spending in insights: not "not an expense", not card payments or interest. */
+export function spendingRows() {
+  return Object.values(state.transactions).filter(t => !t.excluded && !NOT_SPENDING.test(t.description));
+}
+
 export function computeInsights() {
   const txs = Object.values(state.transactions).filter(t => !t.excluded && !NOT_SPENDING.test(t.description));
   if (!txs.length) return null;

@@ -13,6 +13,7 @@ import { initDebug } from './debug.js';
 import { toSort, confirmMerchant, excludeMerchant, payCategory, undoPayment, isSettleUp, reclassifyRow } from './piles.js';
 import { getOllamaSettings, saveOllamaSettings, listModels, suggestCategories, summarizeInsights } from './ollama.js';
 import { renderInsights, insightsFacts } from './insights.js';
+import { wireTrendTooltips, chartImage } from './ui/trends.js';
 import { EventStore } from './event-store.js';
 import { EventTypes } from './config.js';
 import { esc, f0, toast } from './ui/kit.js';
@@ -63,6 +64,16 @@ const val = v => typeof v === 'function' ? v() : v;
 // RENDER
 // ============================================================
 
+/** Note which row lists are open right now (the toggle event can lag a fresh tap). */
+function rememberOpenLists() {
+  for (const d of document.querySelectorAll('#screen details[data-rows]')) {
+    if (d.open) ui.openRows.add(d.dataset.rows); else ui.openRows.delete(d.dataset.rows);
+  }
+  for (const d of document.querySelectorAll('#screen details[data-paidrows]')) {
+    if (d.open) openPaid.add(d.dataset.paidrows); else openPaid.delete(d.dataset.paidrows);
+  }
+}
+
 function render() {
   const screen = SCREENS[ui.screen] || SCREENS.home;
   const back = val(screen.back);
@@ -73,7 +84,7 @@ function render() {
     <button class="icon" data-act="menu" aria-label="Menu">☰</button>`;
   $('#screen').innerHTML = screen.render(ui);
   renderOverlay();
-  if (ui.screen === 'insights') renderInsights();
+  if (ui.screen === 'insights') { renderInsights(); wireTrendTooltips(); }
   if (ui.screen === 'import') wireDropZone();
 }
 
@@ -180,6 +191,26 @@ document.addEventListener('toggle', (e) => {
   if (e.target.open) set.add(key); else set.delete(key);
 }, true);
 
+/** Share the trend chart as an image: share sheet on phones, download elsewhere. */
+async function shareChart() {
+  try {
+    const file = await chartImage(ui);
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: file.name });
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Chart saved as an image');
+  } catch (err) {
+    if (err.name !== 'AbortError') toast(`Couldn't make the image: ${esc(err.message)}`);
+  }
+}
+
 function savePaymentFile(kind) {
   const p = state.payments[ui.paymentId];
   if (!p) return;
@@ -247,6 +278,7 @@ function setLook(change) {
 // ============================================================
 
 document.addEventListener('click', async (e) => {
+  rememberOpenLists();
   if (e.target.closest('#aiInsightsBtn')) {
     const out = $('#aiInsights');
     out.textContent = '🤖 Thinking…';
@@ -257,7 +289,7 @@ document.addEventListener('click', async (e) => {
   if (e.target.closest('#confirmImportBtn')) { confirmImport(); return; }
   if (e.target.closest('#cancelImportBtn')) { cancelImport(); return; }
 
-  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-openpay],[data-paidrow],[data-setskin],[data-themeset],[data-delete]');
+  const el = e.target.closest('[data-act],[data-go],[data-sort],[data-exclude],[data-include],[data-delrule],[data-pay],[data-copy],[data-review],[data-undo],[data-openpay],[data-paidrow],[data-trend],[data-setskin],[data-themeset],[data-delete]');
   if (!el) return;
   const d = el.dataset;
   // Clicks inside the menu sheet shouldn't close it via the scrim
@@ -278,6 +310,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (d.openpay) { ui.paymentId = d.openpay; go('payment'); return; }
+  if (d.trend) { ui.trendCat = d.trend; render(); document.querySelector('.trends')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   if (d.paidrow) {
     // Paid outside the app (or already settled): just this row leaves To pay
     const tx = state.transactions[d.paidrow];
@@ -309,6 +342,7 @@ document.addEventListener('click', async (e) => {
     case 'paySelected': pay([...ui.paySelected]); break;
     case 'clearSelection': ui.paySelected.clear(); render(); break;
     case 'copyPayment': savePaymentFile('text'); break;
+    case 'shareChart': shareChart(); break;
     case 'csvPayment': savePaymentFile('csv'); break;
     case 'fileAll': {
       const p = state.payments[ui.paymentId];
@@ -337,7 +371,9 @@ document.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('change', (e) => {
+  rememberOpenLists();
   const t = e.target;
+  if (t.id === 'trendCat') { ui.trendCat = t.value; render(); return; }
   if (t.id === 'payMonth') { ui.payMonth = t.value; ui.paySelected.clear(); render(); return; }
   if (t.dataset.reclass) {
     const tx = state.transactions[t.dataset.reclass];
