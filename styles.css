@@ -279,8 +279,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 
 /* trends (Insights) */
 .trend-filters { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-.tr-chips .chip { display: inline-flex; align-items: center; gap: 6px; }
-.tr-chips .chip.on { background: var(--surface); color: var(--ink); border: 2px solid var(--ink); padding: 7px 11px; }
+/* Every category in view at once: chips wrap instead of scrolling sideways */
+.tr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tr-chips .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; font-size: 13px; }
+.tr-chips .chip.on { background: var(--surface); color: var(--ink); border: 2px solid var(--ink); padding: 5px 10px; }
 .tr-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
 .tr-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .tr-legend b { color: var(--ink); font-weight: 600; }

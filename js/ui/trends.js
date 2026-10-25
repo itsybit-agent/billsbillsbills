@@ -166,7 +166,7 @@ export function trendsSection(ui) {
         <span class="sub" style="margin:0">${sel.size ? `Comparing ${sel.size} of up to ${MAX_COMPARE}` : 'Tap categories to compare them'}</span>
         <button class="btn small" data-act="shareChart">Share image</button>
       </div>
-      <div class="hscroll tr-chips" role="group" aria-label="Categories">
+      <div class="tr-chips" role="group" aria-label="Categories">
         <button class="chip ${sel.size ? '' : 'on'}" data-act="trendTotal" aria-pressed="${!sel.size}">Total</button>
         ${data.series.map(x => {
           const slot = sel.get(x.category);
