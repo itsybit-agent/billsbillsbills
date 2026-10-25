@@ -110,8 +110,9 @@ function stackBoxes(series, i, y) {
 const fillClass = s => s.slot === null || s.slot === undefined ? 'tr-col' : `tr-col tr-s${s.slot + 1}`;
 
 /** SVG column chart for one or more stacked series. mini = small multiple (no axes or labels). */
-export function chartSVG(months, series, { mini = false } = {}) {
-  const W = mini ? 160 : 340, H = mini ? 48 : 210;
+export function chartSVG(months, series, { mini = false, width = 340 } = {}) {
+  // Drawn at its real pixel width so text and columns keep their size on a wide desk screen
+  const W = mini ? 160 : width, H = mini ? 48 : (W > 600 ? 300 : 210);
   const pad = mini ? { l: 2, r: 2, t: 4, b: 2 } : { l: 34, r: 8, t: 22, b: 22 };
   const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b, base = pad.t + ph;
   const totals = months.map((_, i) => series.reduce((s, x) => s + x.values[i], 0));
@@ -142,7 +143,7 @@ export function chartSVG(months, series, { mini = false } = {}) {
     ${cols}
     ${totals[peak] > 0 ? cap(peak) : ''}
     ${last !== peak && totals[last] > 0 ? cap(last) : ''}
-    ${months.map((m, i) => `<text class="tr-tick" x="${pad.l + band * i + band / 2}" y="${H - 6}" text-anchor="middle">${shortMonth(m)[0]}</text>`).join('')}
+    ${months.map((m, i) => `<text class="tr-tick" x="${pad.l + band * i + band / 2}" y="${H - 6}" text-anchor="middle">${W > 600 ? shortMonth(m) : shortMonth(m)[0]}</text>`).join('')}
     ${months.map((m, i) => `<rect class="tr-hit" x="${pad.l + band * i}" y="${pad.t}" width="${band}" height="${ph}" data-i="${i}" tabindex="0" aria-label="${longMonth(m)}: ${f0(Math.round(totals[i]))}"></rect>`).join('')}
   </svg>`;
 }
@@ -155,6 +156,9 @@ export function trendsSection(ui) {
   const view = trendView(data, ui);
   const sel = ui.trendSel || new Map();
   const stacked = view.series.length > 1;
+  const avgOf = s => s.total / data.months.length;
+  // Card padding + border is 34px; the chart is drawn at the width it gets
+  const width = Math.round(Math.min(Math.max((document.querySelector('#screen')?.clientWidth || 374) - 34, 300), 1100));
 
   return `
     <section class="card trends" style="display:grid;gap:10px">
@@ -173,9 +177,9 @@ export function trendsSection(ui) {
         <div class="h2" style="font-size:20px">${esc(view.title)}</div>
         <p class="sub" style="margin:2px 0 0">${f0(Math.round(view.total))} from ${shortMonth(data.months[0])} to ${longMonth(data.months.at(-1))} · avg ${f0(Math.round(view.avg))}/month, shown as the line</p>
       </div>
-      ${stacked ? `<div class="tr-legend">${view.series.map(s => `<span>${swatch(s)}${esc(s.category)} <b class="num">${f0(Math.round(s.total))}</b></span>`).join('')}</div>` : ''}
+      ${stacked ? `<div class="tr-legend">${view.series.map(s => `<span>${swatch(s)}${esc(s.category)} <b class="num">${f0(Math.round(s.total))}</b> · ${f0(Math.round(avgOf(s)))}/mo</span>`).join('')}</div>` : ''}
       <div class="tr-chart">
-        ${chartSVG(data.months, view.series)}
+        ${chartSVG(data.months, view.series, { width })}
         <div class="tr-tip" hidden></div>
       </div>
       <details class="tr-table">
@@ -278,7 +282,7 @@ export async function chartImage(ui) {
     g.font = `400 28px ${body}`;
     let x = 72, row = 300;
     for (const s of view.series) {
-      const label = `${s.category} ${f0(Math.round(s.total))}`;
+      const label = `${s.category} ${f0(Math.round(s.total))} · ${f0(Math.round(s.total / data.months.length))}/mo`;
       const w = 34 + g.measureText(label).width + 36;
       if (x + w > S - 72) { x = 72; row += 44; }
       g.fillStyle = fill(s);

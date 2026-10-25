@@ -82,6 +82,8 @@ function render() {
     <h1>${val(screen.title)}</h1>
     ${back ? '' : '<button class="addbtn" data-act="pickFile">+ Bank export</button>'}
     <button class="icon" data-act="menu" aria-label="Menu">☰</button>`;
+  // Insights gets the desk width; lists and checklists read better narrow
+  document.querySelector('.app').classList.toggle('app--wide', ui.screen === 'insights');
   $('#screen').innerHTML = screen.render(ui);
   renderOverlay();
   if (ui.screen === 'insights') { renderInsights(); wireTrendTooltips(ui); }
@@ -182,6 +184,13 @@ function keepScroll(fn) {
   fn();
   window.scrollTo({ top: y });
 }
+
+// Charts are drawn at their real width: redraw Insights when the window is resized
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (ui.screen === 'insights') keepScroll(render); }, 150);
+});
 
 // Remember which To pay row lists are open, so a re-render keeps them open
 document.addEventListener('toggle', (e) => {
